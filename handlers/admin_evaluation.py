@@ -293,13 +293,24 @@ Select the appropriate position:"""
                 # Update status to COURSE_DATE_SET
                 workers_sheet.update_cell(user_row, 3, 'COURSE_DATE_SET')  # Column C - STATUS
                 
-                # Add position and course date to additional columns if they exist
-                # This would need to be adjusted based on actual sheet structure
+                # Add position and course date to new columns
+                workers_sheet.update_cell(user_row, 5, position)  # Column E - POSITION
+                workers_sheet.update_cell(user_row, 6, course_date)  # Column F - COURSE_DATE
+                
+                # Calculate pre-course reminder (1 day before course date)
                 try:
-                    workers_sheet.update_cell(user_row, 5, position)  # Column E - POSITION
-                    workers_sheet.update_cell(user_row, 6, course_date)  # Column F - COURSE_DATE
-                except:
-                    pass  # Columns might not exist yet
+                    from datetime import datetime, timedelta
+                    course_date_obj = datetime.strptime(course_date, '%Y-%m-%d')
+                    pre_course_date = course_date_obj - timedelta(days=1)
+                    pre_course_reminder = pre_course_date.strftime('%Y-%m-%d')
+                    
+                    # Update pre-course reminder
+                    workers_sheet.update_cell(user_row, 19, pre_course_reminder)  # Column S - PRE_COURSE_REMINDER
+                    workers_sheet.update_cell(user_row, 20, course_date)  # Column T - DAY_COURSE_REMINDER
+                    
+                    logger.info(f"Pre-course reminder set to {pre_course_reminder} for course on {course_date}")
+                except Exception as e:
+                    logger.error(f"Error calculating pre-course reminder: {e}")
             else:
                 # Update status to STOP
                 workers_sheet.update_cell(user_row, 3, 'STOP')  # Column C - STATUS
