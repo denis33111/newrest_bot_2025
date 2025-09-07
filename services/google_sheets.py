@@ -161,11 +161,16 @@ def save_registration_data(data):
 def save_worker_data(data):
     """Save worker data to WORKERS sheet"""
     try:
+        logger.info(f"Starting save_worker_data for user {data.get('user_id')}")
+        logger.info(f"Data being saved: {data}")
+        
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
+            logger.error(f"Google Sheets initialization failed: {sheets_data}")
             return False
         
         workers_sheet = sheets_data['sheets']['workers']
+        logger.info(f"Got workers sheet: {workers_sheet}")
         
         # Prepare worker data row
         worker_row = [
@@ -174,6 +179,8 @@ def save_worker_data(data):
             'WAITING',                            # Column C - STATUS
             data.get('language', 'gr')            # Column D - LANGUAGE
         ]
+        
+        logger.info(f"Worker row to append: {worker_row}")
         
         # Add row to WORKERS sheet
         workers_sheet.append_row(worker_row)
