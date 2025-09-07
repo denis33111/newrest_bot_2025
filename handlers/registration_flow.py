@@ -143,7 +143,13 @@ class RegistrationFlow:
     
     async def handle_selection_answer(self, callback_data):
         """Handle selection answer"""
-        field, value = callback_data.split('_', 1)
+        # Handle special case for driving_license (has underscore in field name)
+        if callback_data.startswith('driving_license_'):
+            field = 'driving_license'
+            value = callback_data.replace('driving_license_', '')
+        else:
+            field, value = callback_data.split('_', 1)
+        
         self.data[field] = value
         logger.info(f"Set {field}: {value}, current data: {self.data}")
         

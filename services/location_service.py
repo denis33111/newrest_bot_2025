@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 # Work location coordinates (configure these for your actual work location)
 WORK_LOCATION = {
-    'latitude': 37.9755,  # Replace with actual work location latitude
-    'longitude': 23.7348,  # Replace with actual work location longitude
-    'radius_meters': 100   # Acceptable radius in meters
+    'latitude': 37.909416,  # Work location latitude
+    'longitude': 23.871109,  # Work location longitude
+    'radius_meters': 500   # Acceptable radius in meters
 }
 
 def validate_work_location(location):
