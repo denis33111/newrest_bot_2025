@@ -26,8 +26,7 @@ GOOGLE_SHEETS_ID = os.getenv('GOOGLE_SHEETS_ID')
 GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv('GOOGLE_SERVICE_ACCOUNT_EMAIL')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
-# Initialize bot
-bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
+# Bot will be created per request to avoid event loop issues
 
 # Initialize Google Sheets
 def init_google_sheets():
@@ -294,6 +293,7 @@ Welcome back! Your working console is being prepared.
 
 Stay tuned! 🎯
     """
+    bot = Bot(token=BOT_TOKEN)
     await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
 
 async def send_registration_flow(user_id):
@@ -310,6 +310,7 @@ Welcome! You need to complete registration first.
 
 **Coming Soon!** 🎯
     """
+    bot = Bot(token=BOT_TOKEN)
     await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
 
 async def send_error_message(user_id):
@@ -321,12 +322,14 @@ Sorry, there was an error processing your request.
 
 Please try again later.
     """
+    bot = Bot(token=BOT_TOKEN)
     await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
 
 async def setup_webhook():
     """Set up Telegram webhook"""
     try:
         webhook_url = WEBHOOK_URL  # Already includes /webhook
+        bot = Bot(token=BOT_TOKEN)
         await bot.set_webhook(url=webhook_url)
         logger.info(f"Webhook set to: {webhook_url}")
         return True
