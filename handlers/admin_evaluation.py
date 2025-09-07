@@ -23,6 +23,9 @@ class AdminEvaluation:
     async def notify_admin_group(self):
         """Send notification to admin group about new registration"""
         try:
+            logger.info(f"Attempting to send admin notification for user {self.user_id}")
+            logger.info(f"Admin group ID: {self.admin_group_id}")
+            
             bot = Bot(token=self.bot_token)
             
             # Prepare candidate summary
@@ -57,6 +60,7 @@ Click below to start evaluation:"""
             ]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
+            logger.info(f"Sending message to admin group {self.admin_group_id}")
             await bot.send_message(
                 chat_id=self.admin_group_id,
                 text=message,
@@ -64,11 +68,13 @@ Click below to start evaluation:"""
                 reply_markup=reply_markup
             )
             
-            logger.info(f"Admin notification sent for user {user_id}")
+            logger.info(f"Admin notification sent successfully for user {user_id}")
             return True
             
         except Exception as e:
             logger.error(f"Error sending admin notification: {e}")
+            logger.error(f"Admin group ID: {self.admin_group_id}")
+            logger.error(f"Bot token present: {bool(self.bot_token)}")
             return False
     
     async def start_evaluation(self):
