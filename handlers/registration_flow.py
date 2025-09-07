@@ -34,7 +34,7 @@ class RegistrationFlow:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        message = f"**1. Language Selection**\n\n{get_text('en', 'language_selection')}"
+        message = f"**1. Language Selection**\n\n{get_text('gr', 'language_selection')}"
         
         bot = Bot(token=self.bot_token)
         await bot.send_message(
