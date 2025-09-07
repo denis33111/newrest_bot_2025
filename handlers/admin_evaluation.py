@@ -304,12 +304,10 @@ class AdminEvaluation:
                     workers_sheet.append_row(worker_row)
                     logger.info(f"User {self.user_id} added to WORKERS sheet as fallback")
                     
-                    # Find the newly added row
-                    id_column = workers_sheet.col_values(2)  # Refresh ID column
-                    for i, user_id_in_sheet in enumerate(id_column[1:], start=2):
-                        if str(self.user_id) == str(user_id_in_sheet):
-                            user_row = i
-                            break
+                    # Get the total number of rows to find the newly added row
+                    all_values = workers_sheet.get_all_values()
+                    user_row = len(all_values)  # The new row will be at the end
+                    logger.info(f"New user row number: {user_row}")
                 except Exception as e:
                     logger.error(f"Failed to add user to WORKERS sheet: {e}")
                     return False
