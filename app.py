@@ -208,18 +208,110 @@ async def test_all():
     
     return jsonify(results)
 
-# Webhook endpoint (placeholder)
+# Telegram webhook endpoint
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    """Webhook endpoint for external integrations"""
+    """Telegram webhook endpoint"""
     data = request.get_json()
-    logger.info(f"Webhook received: {data}")
+    logger.info(f"Telegram webhook received: {data}")
     
-    return jsonify({
-        'status': 'received',
-        'message': 'Webhook endpoint is working',
-        'data': data
-    })
+    # Process Telegram update
+    if data and 'message' in data:
+        asyncio.create_task(handle_telegram_message(data['message']))
+    
+    return jsonify({'status': 'ok'})
+
+async def handle_telegram_message(message):
+    """Handle incoming Telegram messages"""
+    try:
+        user_id = message['from']['id']
+        username = message['from'].get('username', 'Unknown')
+        text = message.get('text', '')
+        
+        logger.info(f"Processing message from user {user_id} ({username}): {text}")
+        
+        # Check if user is in WORKERS sheet
+        user_status = await check_user_status(user_id)
+        
+        if user_status == 'WORKING':
+            await send_working_console(user_id)
+        elif user_status == 'NOT_FOUND':
+            await send_registration_flow(user_id)
+        elif user_status == 'OFF':
+            # Disabled user - no response
+            logger.info(f"Disabled user {user_id} - ignoring message")
+            return
+        else:
+            await send_error_message(user_id)
+            
+    except Exception as e:
+        logger.error(f"Error handling Telegram message: {e}")
+
+async def check_user_status(user_id):
+    """Check user status in WORKERS sheet"""
+    try:
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            return 'ERROR'
+        
+        workers_sheet = sheets_data['sheets']['workers']
+        workers_data = workers_sheet.get_all_values()
+        
+        # Check if user_id exists in the sheet
+        for row in workers_data[1:]:  # Skip header row
+            if len(row) >= 2 and str(user_id) == str(row[1]):  # Check ID column
+                status = row[2] if len(row) > 2 else 'UNKNOWN'  # Check STATUS column
+                return status
+        
+        return 'NOT_FOUND'
+        
+    except Exception as e:
+        logger.error(f"Error checking user status: {e}")
+        return 'ERROR'
+
+async def send_working_console(user_id):
+    """Send working console message"""
+    message = """
+🚀 **Working Console - Coming Soon**
+
+Welcome back! Your working console is being prepared.
+
+**Available Soon:**
+• Check-in/out system
+• Daily attendance tracking
+• Schedule management
+• Status updates
+
+Stay tuned! 🎯
+    """
+    await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
+
+async def send_registration_flow(user_id):
+    """Send registration flow message"""
+    message = """
+📝 **Registration Flow - Coming Soon**
+
+Welcome! You need to complete registration first.
+
+**Registration Process:**
+• Step 1: Personal data input
+• Step 2: Admin verification
+• Step 3: Course date confirmation
+
+**Coming Soon!** 🎯
+    """
+    await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
+
+async def send_error_message(user_id):
+    """Send error message"""
+    message = """
+❌ **System Error**
+
+Sorry, there was an error processing your request.
+
+Please try again later.
+    """
+    await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
 
 if __name__ == '__main__':
     # Test all connections on startup
