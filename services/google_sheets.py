@@ -54,13 +54,24 @@ def init_google_sheets():
             'spreadsheet': spreadsheet,
             'sheets': {
                 'registration': spreadsheet.worksheet('REGISTRATION'),
-                'workers': spreadsheet.worksheet('WORKERS'),
-                'august_2025': spreadsheet.worksheet('2025/8')
+                'workers': spreadsheet.worksheet('WORKERS')
             }
         }
     except Exception as e:
         logger.error(f"Google Sheets initialization failed: {e}")
         return {'status': 'error', 'error': str(e)}
+
+def get_monthly_sheet(sheet_name):
+    """Get monthly sheet by name - only called when needed"""
+    try:
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            return None
+        
+        return sheets_data['spreadsheet'].worksheet(sheet_name)
+    except Exception as e:
+        logger.error(f"Error getting monthly sheet {sheet_name}: {e}")
+        return None
 
 def check_user_status(user_id):
     """Check user status in WORKERS sheet"""
@@ -173,9 +184,8 @@ async def get_user_working_status(user_id):
             return {'checked_in': False, 'error': 'Could not determine current month'}
         
         # Check if current month sheet exists, create if not
-        try:
-            monthly_sheet = sheets_data['spreadsheet'].worksheet(current_month_sheet_name)
-        except:
+        monthly_sheet = get_monthly_sheet(current_month_sheet_name)
+        if not monthly_sheet:
             # Create new monthly sheet
             monthly_sheet = create_monthly_sheet(sheets_data['spreadsheet'], current_month_sheet_name)
             if not monthly_sheet:
@@ -273,9 +283,8 @@ async def update_working_status(user_id, checked_in, check_in_time=None, check_o
             return False
         
         # Check if current month sheet exists, create if not
-        try:
-            monthly_sheet = sheets_data['spreadsheet'].worksheet(current_month_sheet_name)
-        except:
+        monthly_sheet = get_monthly_sheet(current_month_sheet_name)
+        if not monthly_sheet:
             # Create new monthly sheet
             monthly_sheet = create_monthly_sheet(sheets_data['spreadsheet'], current_month_sheet_name)
             if not monthly_sheet:
