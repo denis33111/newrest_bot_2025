@@ -9,6 +9,7 @@ from services.google_sheets import check_user_status
 from services.telegram_bot import send_working_console, send_error_message
 from handlers.registration_flow import RegistrationFlow
 from handlers.working_console import WorkingConsole
+from handlers.admin_evaluation import AdminEvaluation
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +103,12 @@ async def handle_callback_query(callback_query):
             user_id = callback_query.from_user.id
             data = callback_query.data
         
+        # Handle admin evaluation callbacks
+        if data.startswith('admin_eval_'):
+            await handle_admin_evaluation_callback(data)
+        
         # Handle registration callbacks
-        if user_id in active_registrations:
+        elif user_id in active_registrations:
             registration = active_registrations[user_id]
             
             if data.startswith('lang_'):
@@ -124,3 +129,52 @@ async def handle_callback_query(callback_query):
         
     except Exception as e:
         logger.error(f"Error handling callback query: {e}")
+
+async def handle_admin_evaluation_callback(data):
+    """Handle admin evaluation callback queries"""
+    try:
+        parts = data.split('_')
+        
+        if len(parts) < 4:
+            logger.error(f"Invalid admin evaluation callback: {data}")
+            return
+        
+        action = parts[2]  # start, continue, reject, position, date, custom
+        user_id = parts[-1]  # Last part is always user_id
+        
+        # Get candidate data from registration (this would need to be stored)
+        # For now, we'll create a basic structure
+        candidate_data = {
+            'user_id': user_id,
+            'full_name': 'Unknown',  # This should be retrieved from storage
+            'age': 'Unknown',
+            'phone': 'Unknown',
+            'email': 'Unknown',
+            'transportation': 'Unknown',
+            'bank': 'Unknown',
+            'driving_license': 'Unknown'
+        }
+        
+        admin_eval = AdminEvaluation(user_id, candidate_data)
+        
+        if action == 'start':
+            await admin_eval.start_evaluation()
+        elif action == 'continue':
+            await admin_eval.ask_position()
+        elif action == 'reject':
+            await admin_eval.save_evaluation('', '', approved=False)
+        elif action == 'position':
+            position = parts[3]  # HL, Supervisor, EQ
+            await admin_eval.ask_course_date(position)
+        elif action == 'date':
+            position = parts[3]  # Position from previous step
+            course_date = parts[4]  # Selected date
+            await admin_eval.save_evaluation(position, course_date, approved=True)
+        elif action == 'custom':
+            # Handle custom date input (would need additional implementation)
+            logger.info(f"Custom date requested for user {user_id}")
+        
+        logger.info(f"Admin evaluation callback handled: {action} for user {user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error handling admin evaluation callback: {e}")

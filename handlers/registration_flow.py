@@ -9,6 +9,7 @@ import logging
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from handlers.language_system import get_text, get_buttons, get_language_from_text
 from services.google_sheets import save_registration_data, save_worker_data
+from handlers.admin_evaluation import AdminEvaluation
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +237,10 @@ class RegistrationFlow:
         success = registration_success and worker_success
         
         if success:
+            # Notify admin group
+            admin_eval = AdminEvaluation(self.user_id, self.data)
+            await admin_eval.notify_admin_group()
+            
             # Send success message based on language
             if self.language == 'gr':
                 message = """🎉 Συγχαρητήρια! Περάσατε με επιτυχία το πρώτο στάδιο.
