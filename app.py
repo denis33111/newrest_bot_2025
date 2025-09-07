@@ -217,13 +217,17 @@ def webhook():
     
     # Process Telegram update
     if data and 'message' in data:
-        # Run async function in new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Run async function in existing event loop or create new one
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
         try:
             loop.run_until_complete(handle_telegram_message(data['message']))
-        finally:
-            loop.close()
+        except Exception as e:
+            logger.error(f"Error in event loop: {e}")
     
     return jsonify({'status': 'ok'})
 
