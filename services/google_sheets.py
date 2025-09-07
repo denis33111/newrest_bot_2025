@@ -74,19 +74,23 @@ def get_monthly_sheet(sheet_name):
         return None
 
 def check_user_status(user_id):
-    """Check user status in WORKERS sheet"""
+    """Check user status in WORKERS sheet - only ID and STATUS columns"""
     try:
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
             return 'ERROR'
         
         workers_sheet = sheets_data['sheets']['workers']
-        workers_data = workers_sheet.get_all_values()
         
-        # Check if user_id exists in the sheet
-        for row in workers_data[1:]:  # Skip header row
-            if len(row) >= 2 and str(user_id) == str(row[1]):  # Check ID column
-                status = row[2] if len(row) > 2 else 'UNKNOWN'  # Check STATUS column
+        # Get only ID column (B) and STATUS column (C) - more efficient
+        id_column = workers_sheet.col_values(2)  # Column B - ID
+        status_column = workers_sheet.col_values(3)  # Column C - STATUS
+        
+        # Check if user_id exists in ID column
+        for i, user_id_in_sheet in enumerate(id_column[1:], start=2):  # Skip header row
+            if str(user_id) == str(user_id_in_sheet):
+                # Get corresponding status
+                status = status_column[i-1] if i-1 < len(status_column) else 'UNKNOWN'
                 return status
         
         return 'NOT_FOUND'
