@@ -76,16 +76,16 @@ class AdminEvaluation:
         try:
             bot = Bot(token=self.bot_token)
             
-            message = """🔍 **Candidate Evaluation**
+            message = """🔍 **Αξιολόγηση Υποψηφίου**
 
-**Question 1:** Should we continue with this candidate?
+**Ερώτηση 1:** Θα συνεχίσουμε με αυτόν τον υποψήφιο;
 
-Please review the candidate details and decide:"""
+Παρακαλώ αξιολογήστε τα στοιχεία του υποψηφίου και αποφασίστε:"""
             
             keyboard = [
                 [
-                    InlineKeyboardButton("✅ Yes, Continue", callback_data=f"admin_eval_continue_{self.user_id}"),
-                    InlineKeyboardButton("❌ No, Reject", callback_data=f"admin_eval_reject_{self.user_id}")
+                    InlineKeyboardButton("✅ Ναι, Συνεχίστε", callback_data=f"admin_eval_continue_{self.user_id}"),
+                    InlineKeyboardButton("❌ Όχι, Απόρριψη", callback_data=f"admin_eval_reject_{self.user_id}")
                 ]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -109,11 +109,11 @@ Please review the candidate details and decide:"""
         try:
             bot = Bot(token=self.bot_token)
             
-            message = """📋 **Position Selection**
+            message = """📋 **Επιλογή Θέσης**
 
-**Question 2:** What position is this candidate for?
+**Ερώτηση 2:** Για ποια θέση είναι αυτός ο υποψήφιος;
 
-Select the appropriate position:"""
+Επιλέξτε την κατάλληλη θέση:"""
             
             keyboard = [
                 [
@@ -149,12 +149,12 @@ Select the appropriate position:"""
             # Calculate course dates based on position
             course_dates = self.calculate_course_dates(position)
             
-            message = f"""📅 **Course Date Selection**
+            message = f"""📅 **Επιλογή Ημερομηνίας Μαθήματος**
 
-**Question 3:** When should the course be scheduled?
+**Ερώτηση 3:** Πότε πρέπει να προγραμματιστεί το μάθημα;
 
-**Position:** {position}
-**Available dates:**"""
+**Θέση:** {position}
+**Διαθέσιμες ημερομηνίες:**"""
             
             keyboard = []
             
@@ -170,7 +170,7 @@ Select the appropriate position:"""
             # Add custom option
             keyboard.append([
                 InlineKeyboardButton(
-                    "📝 Custom Date",
+                    "📝 Προσαρμοσμένη Ημερομηνία",
                     callback_data=f"admin_eval_custom_{self.user_id}"
                 )
             ])
@@ -280,14 +280,39 @@ Select the appropriate position:"""
             id_column = workers_sheet.col_values(2)  # Column B - ID
             user_row = None
             
+            logger.info(f"Looking for user {self.user_id} in WORKERS sheet")
+            logger.info(f"ID column values: {id_column}")
+            
             for i, user_id_in_sheet in enumerate(id_column[1:], start=2):  # Skip header row
+                logger.info(f"Checking row {i}: {user_id_in_sheet} == {self.user_id}? {str(self.user_id) == str(user_id_in_sheet)}")
                 if str(self.user_id) == str(user_id_in_sheet):
                     user_row = i
                     break
             
             if not user_row:
                 logger.error(f"User {self.user_id} not found in WORKERS sheet")
-                return False
+                # Try to add the user to WORKERS sheet as fallback
+                logger.info(f"Attempting to add user {self.user_id} to WORKERS sheet as fallback")
+                try:
+                    # Add user to WORKERS sheet
+                    worker_row = [
+                        self.candidate_data.get('full_name', 'Unknown'),  # Column A - NAME
+                        str(self.user_id),  # Column B - ID
+                        'WAITING',  # Column C - STATUS
+                        self.candidate_data.get('language', 'gr')  # Column D - LANGUAGE
+                    ]
+                    workers_sheet.append_row(worker_row)
+                    logger.info(f"User {self.user_id} added to WORKERS sheet as fallback")
+                    
+                    # Find the newly added row
+                    id_column = workers_sheet.col_values(2)  # Refresh ID column
+                    for i, user_id_in_sheet in enumerate(id_column[1:], start=2):
+                        if str(self.user_id) == str(user_id_in_sheet):
+                            user_row = i
+                            break
+                except Exception as e:
+                    logger.error(f"Failed to add user to WORKERS sheet: {e}")
+                    return False
             
             # Update status and add course info
             if approved:
