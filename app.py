@@ -9,7 +9,7 @@ import logging
 from flask import Flask, jsonify, request
 from services.google_sheets import init_google_sheets
 from services.telegram_bot import setup_webhook
-from handlers.message_handler import handle_telegram_message
+from handlers.message_handler import handle_telegram_message, handle_callback_query
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -177,6 +177,19 @@ def webhook():
             loop.run_until_complete(handle_telegram_message(data['message']))
         except Exception as e:
             logger.error(f"Error in event loop: {e}")
+    
+    # Process callback queries (button presses)
+    elif data and 'callback_query' in data:
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        try:
+            loop.run_until_complete(handle_callback_query(data['callback_query']))
+        except Exception as e:
+            logger.error(f"Error in callback query event loop: {e}")
     
     return jsonify({'status': 'ok'})
 

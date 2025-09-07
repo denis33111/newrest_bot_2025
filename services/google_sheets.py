@@ -98,3 +98,46 @@ def get_sheet_data(sheet_name):
     except Exception as e:
         logger.error(f"Error getting sheet data for {sheet_name}: {e}")
         return None
+
+def save_registration_data(data):
+    """Save registration data to REGISTRATION sheet"""
+    try:
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            return False
+        
+        registration_sheet = sheets_data['sheets']['registration']
+        
+        # Prepare data row
+        row_data = [
+            data.get('language', 'gr'),           # Column A - LANGUAGE
+            data.get('user_id', ''),              # Column B - USER_ID
+            '',                                   # Column C - WORKING
+            data.get('full_name', ''),            # Column D - NAME
+            data.get('age', ''),                  # Column E - AGE
+            data.get('phone', ''),                # Column F - PHONE
+            data.get('email', ''),                # Column G - EMAIL
+            data.get('address', ''),              # Column H - ADDRESS
+            data.get('transportation', ''),       # Column I - TRANSPORT
+            data.get('bank', ''),                 # Column J - BANK
+            data.get('driving_license', ''),      # Column K - DR_LICENCE_NO
+            '',                                   # Column L - CRIMINAL_RECORD
+            '',                                   # Column M - HEALTH_CERT
+            '',                                   # Column N - AMKA
+            '',                                   # Column O - AMA
+            '',                                   # Column P - AFM
+            data.get('status', 'WAITING'),        # Column Q - STATUS
+            '',                                   # Column R - COURSE_DATE
+            '',                                   # Column S - PRE_COURSE_REMINDER
+            ''                                    # Column T - DAY_COURSE_REMINDER
+        ]
+        
+        # Add row to sheet
+        registration_sheet.append_row(row_data)
+        
+        logger.info(f"Registration data saved for user {data.get('user_id')}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error saving registration data: {e}")
+        return False
