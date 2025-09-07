@@ -317,9 +317,9 @@ class AdminEvaluation:
                 # Update status to COURSE_DATE_SET
                 workers_sheet.update_cell(user_row, 3, 'COURSE_DATE_SET')  # Column C - STATUS
                 
-                # Add position and course date to new columns
+                # Add position only to WORKERS sheet (course date goes to REGISTRATION sheet)
                 workers_sheet.update_cell(user_row, 5, position)  # Column E - POSITION
-                workers_sheet.update_cell(user_row, 6, course_date)  # Column F - COURSE_DATE
+                logger.info(f"WORKERS sheet updated - Position: {position}")
                 
                 # Calculate pre-course reminder (1 day before course date)
                 try:
@@ -372,6 +372,7 @@ class AdminEvaluation:
             # Update position and course date in REGISTRATION sheet
             registration_sheet.update_cell(user_row, 10, position)  # Column J - POSITION
             registration_sheet.update_cell(user_row, 11, course_date)  # Column K - COURSE_DATE
+            logger.info(f"REGISTRATION sheet updated - Position: {position}, Course Date: {course_date}")
             
             logger.info(f"Registration sheet updated for user {self.user_id}")
             return True
