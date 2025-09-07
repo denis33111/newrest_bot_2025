@@ -18,7 +18,7 @@ class RegistrationFlow:
         self.language = language
         self.data = {}
         self.current_step = 0
-        self.bot = Bot(token=os.getenv('BOT_TOKEN'))
+        self.bot_token = os.getenv('BOT_TOKEN')
     
     async def start_registration(self):
         """Start the registration process"""
@@ -35,7 +35,8 @@ class RegistrationFlow:
         
         message = f"**1. Language Selection**\n\n{get_text('en', 'language_selection')}"
         
-        await self.bot.send_message(
+        bot = Bot(token=self.bot_token)
+        await bot.send_message(
             chat_id=self.user_id,
             text=message,
             parse_mode='Markdown',
@@ -72,7 +73,8 @@ class RegistrationFlow:
         question = get_text(self.language, question_key)
         message = f"**{self.current_step}. {question}**\n\nPlease type your answer:"
         
-        await self.bot.send_message(
+        bot = Bot(token=self.bot_token)
+        await bot.send_message(
             chat_id=self.user_id,
             text=message,
             parse_mode='Markdown'
@@ -124,7 +126,8 @@ class RegistrationFlow:
         
         message = f"**{self.current_step}. {question}**\n\nSelect an option:"
         
-        await self.bot.send_message(
+        bot = Bot(token=self.bot_token)
+        await bot.send_message(
             chat_id=self.user_id,
             text=message,
             parse_mode='Markdown',
@@ -179,7 +182,8 @@ class RegistrationFlow:
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await self.bot.send_message(
+        bot = Bot(token=self.bot_token)
+        await bot.send_message(
             chat_id=self.user_id,
             text=review_text,
             parse_mode='Markdown',
@@ -211,14 +215,16 @@ class RegistrationFlow:
         
         if success:
             message = f"✅ **Registration Complete!**\n\nYour registration has been submitted and is waiting for admin verification.\n\nYou will receive a notification once approved."
-            await self.bot.send_message(
+            bot = Bot(token=self.bot_token)
+            await bot.send_message(
                 chat_id=self.user_id,
                 text=message,
                 parse_mode='Markdown'
             )
         else:
             message = "❌ **Registration Failed**\n\nThere was an error saving your registration. Please try again."
-            await self.bot.send_message(
+            bot = Bot(token=self.bot_token)
+            await bot.send_message(
                 chat_id=self.user_id,
                 text=message,
                 parse_mode='Markdown'
