@@ -233,7 +233,61 @@ class RegistrationFlow:
         success = save_registration_data(self.data)
         
         if success:
-            message = f"✅ **Registration Complete!**\n\nYour registration has been submitted and is waiting for admin verification.\n\nYou will receive a notification once approved."
+            # Send success message based on language
+            if self.language == 'gr':
+                message = """🎉 Συγχαρητήρια! Περάσατε με επιτυχία το πρώτο στάδιο.
+
+Στο δεύτερο στάδιο θα περάσετε από συνέντευξη με τη Newrest.
+
+Για την ημέρα και ώρα της συνέντευξης θα ενημερωθείτε από έναν συνάδελφό μας.
+
+📍 Τοποθεσία Newrest: https://maps.app.goo.gl/f5ttxdDEyoU6TBi77
+
+📋 Έγγραφα για εργασία:
+
+• Έγχρωμη φωτογραφία ταυτότητας μπροστά και πίσω όψη.
+
+• Αντίγραφο ποινικού μητρώου.
+Πληκτρολογούμε στο Google: αντίγραφο ποινικού μητρώου, επιλέγουμε το πρώτο, ακολουθούμε τα βήματα, συνδεόμαστε με τους κωδικούς taxisnet, επιλέγουμε ΝΑΙ κάτω κάτω στις μπάρες, γίνεται η αίτηση και στέλνουμε φωτογραφία το QR code.
+Ενημερώνουμε σε κάθε περίπτωση αν δεν μπορεί να βγει το αρχείο με αυτό τον τρόπο.
+
+• Πιστοποιητικό υγείας.
+Εάν δεν έχουμε κάνει ποτέ ή έχουμε κάνει και έχουν περάσει πέντε χρόνια, τότε το βγάζουμε εμείς.
+
+• Υπεύθυνη δήλωση ποινικού μητρώου.
+Το αρχείο που σας έχει αποσταλεί, το επικυρώνουμε με Ψηφιακή βεβαίωση εγγράφου στο gov.gr (υπηρεσία: "Ψηφιακή βεβαίωση εγγράφου"). Μπορείτε να πάτε απευθείας εδώ: https://www.gov.gr/ipiresies/polites-kai-kathemerinoteta/psephiaka-eggrapha-gov-gr/psephiake-bebaiose-eggraphou
+Πληκτρολογούμε στο Google: Ψηφιακή βεβαίωση εγγράφου, επιλέγουμε το πρώτο, ακολουθούμε τα βήματα, συνδεόμαστε, ανεβάζουμε το αρχείο στο αντίστοιχο πεδίο, επιλέγουμε υπογραφή στα ελληνικά και ολοκληρώνουμε με τον κωδικό SMS. Βγάζουμε καλή φωτογραφία το QR code και το στέλνουμε.
+
+• ΑΦΜ, ΑΜΑ, ΑΜΚΑ και μία διεύθυνση.
+
+Ευχαριστούμε! Παρακαλώ προχωρήστε στο επόμενο βήμα όπως σας ενημερώσαμε."""
+            else:
+                message = """🎉 Congratulations! You have successfully passed the first stage.
+
+In the second stage you will go through an interview with Newrest.
+
+You will be informed about the day and time of the interview by one of our colleagues.
+
+📍 Newrest Location: https://maps.app.goo.gl/f5ttxdDEyoU6TBi77
+
+📋 Documents for work:
+
+• Color ID photo front and back.
+
+• Copy of criminal record.
+We type in Google: copy of criminal record, select the first one, follow the steps, connect with the TAXISnet codes, select YES at the bottom of the bars; when the application is made please send a photo of the QR code. Please let us know in case you cannot get the file in this way.
+
+• Health certificate.
+If you have never done it or if you have done it but it has been five years, we will get it for you.
+
+• Criminal record certificate.
+The file that has been sent to you can be validated using the gov.gr service "Digital document certification". Direct link: https://www.gov.gr/en/ipiresies/polites-kai-kathemerinoteta/psephiaka-eggrapha-gov-gr/psephiake-bebaiose-eggraphou
+Follow the steps: connect with TAXISnet, upload the file, choose signature in Greek, request SMS code, enter it and download the certified document. Then send us a clear photo of the QR code.
+
+• AFM, AMA, AMKA and your home address.
+
+Thank you! Please come to the next step as instructed."""
+            
             bot = Bot(token=self.bot_token)
             await bot.send_message(
                 chat_id=self.user_id,
