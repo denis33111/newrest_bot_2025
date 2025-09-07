@@ -71,7 +71,7 @@ class RegistrationFlow:
     async def ask_text_question(self, field, question_key):
         """Ask a text input question"""
         question = get_text(self.language, question_key)
-        message = f"**{self.current_step}. {question}**\n\nPlease type your answer:"
+        message = f"**{self.current_step}. {question}**"
         
         bot = Bot(token=self.bot_token)
         await bot.send_message(
@@ -124,7 +124,7 @@ class RegistrationFlow:
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        message = f"**{self.current_step}. {question}**\n\nSelect an option:"
+        message = f"**{self.current_step}. {question}**"
         
         bot = Bot(token=self.bot_token)
         await bot.send_message(
