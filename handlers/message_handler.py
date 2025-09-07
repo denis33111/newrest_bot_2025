@@ -8,6 +8,7 @@ import logging
 from services.google_sheets import check_user_status
 from services.telegram_bot import send_working_console, send_error_message
 from handlers.registration_flow import RegistrationFlow
+from handlers.working_console import WorkingConsole
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,8 @@ async def handle_telegram_message(message):
         user_status = check_user_status(user_id)
         
         if user_status == 'WORKING':
-            await send_working_console(user_id)
+            # Handle working console messages
+            await handle_working_message(user_id, message)
         elif user_status == 'NOT_FOUND':
             # Start registration flow
             registration = RegistrationFlow(user_id)
@@ -63,6 +65,31 @@ async def handle_registration_message(user_id, text):
             
     except Exception as e:
         logger.error(f"Error handling registration message: {e}")
+
+async def handle_working_message(user_id, message):
+    """Handle messages from working users"""
+    try:
+        working_console = WorkingConsole(user_id)
+        
+        # Check if it's a location message
+        if message.get('location'):
+            await working_console.handle_location(message['location'])
+            return
+        
+        # Check if it's a text message with working console commands
+        text = message.get('text', '')
+        
+        if 'Check In' in text or 'Check Out' in text:
+            await working_console.handle_check_in_out(text)
+        elif 'Contact' in text:
+            await working_console.handle_contact()
+        else:
+            # Show working console for any other message
+            await working_console.show_working_console()
+            
+    except Exception as e:
+        logger.error(f"Error handling working message: {e}")
+        await send_error_message(user_id)
 
 async def handle_callback_query(callback_query):
     """Handle callback queries (button presses)"""

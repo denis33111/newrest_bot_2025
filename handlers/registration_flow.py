@@ -82,22 +82,29 @@ class RegistrationFlow:
     
     async def handle_text_answer(self, text):
         """Handle text input answer"""
+        logger.info(f"Handling text answer: '{text}' for step {self.current_step}, data: {self.data}")
+        
         if self.current_step == 2:
             # Personal info questions
             if 'full_name' not in self.data:
                 self.data['full_name'] = text
+                logger.info(f"Set full_name: {text}, asking for age")
                 await self.ask_text_question('age', 'age')
             elif 'age' not in self.data:
                 self.data['age'] = text
+                logger.info(f"Set age: {text}, asking for phone")
                 await self.ask_text_question('phone', 'phone')
             elif 'phone' not in self.data:
                 self.data['phone'] = text
+                logger.info(f"Set phone: {text}, asking for email")
                 await self.ask_text_question('email', 'email')
             elif 'email' not in self.data:
                 self.data['email'] = text
+                logger.info(f"Set email: {text}, asking for address")
                 await self.ask_text_question('address', 'address')
             elif 'address' not in self.data:
                 self.data['address'] = text
+                logger.info(f"Set address: {text}, moving to step 3")
                 self.current_step = 3
                 await self.show_selection_questions()
     
@@ -138,12 +145,16 @@ class RegistrationFlow:
         """Handle selection answer"""
         field, value = callback_data.split('_', 1)
         self.data[field] = value
+        logger.info(f"Set {field}: {value}, current data: {self.data}")
         
         if field == 'transportation':
+            logger.info("Asking for bank selection")
             await self.ask_selection_question('bank', 'bank')
         elif field == 'bank':
+            logger.info("Asking for driving license selection")
             await self.ask_selection_question('driving_license', 'driving_license')
         elif field == 'driving_license':
+            logger.info("All selections complete, showing review screen")
             self.current_step = 4
             await self.show_review_screen()
     

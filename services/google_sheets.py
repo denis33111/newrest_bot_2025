@@ -7,6 +7,7 @@ Handles all Google Sheets operations
 import os
 import logging
 import gspread
+from datetime import datetime
 from google.oauth2.service_account import Credentials
 
 logger = logging.getLogger(__name__)
@@ -141,3 +142,202 @@ def save_registration_data(data):
     except Exception as e:
         logger.error(f"Error saving registration data: {e}")
         return False
+
+# Working status and time tracking functions
+async def get_user_working_status(user_id):
+    """Get user's current working status and today's data"""
+    try:
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            return {'checked_in': False, 'error': 'Sheets connection failed'}
+        
+        # Get current date for today's tracking
+        today = datetime.now().strftime("%m/%d/%Y")
+        
+        # Check if user is in WORKERS sheet
+        workers_sheet = sheets_data['sheets']['workers']
+        workers_data = workers_sheet.get_all_values()
+        
+        user_name = None
+        for row in workers_data[1:]:  # Skip header row
+            if len(row) >= 2 and str(user_id) == str(row[1]):  # Check ID column
+                user_name = row[0]  # Get name from column A
+                break
+        
+        if not user_name:
+            return {'checked_in': False, 'error': 'User not found in workers sheet'}
+        
+        # Check today's attendance in monthly sheet
+        monthly_sheet = sheets_data['sheets']['august_2025']
+        monthly_data = monthly_sheet.get_all_values()
+        
+        # Find user's row in monthly sheet
+        user_row = None
+        for i, row in enumerate(monthly_data[2:], start=3):  # Skip header rows, start from row 3
+            if len(row) > 0 and row[0] == user_name:  # Check name column
+                user_row = i
+                break
+        
+        if not user_row:
+            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
+        
+        # Get today's data from monthly sheet
+        today_column = get_today_column()
+        if today_column is None:
+            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
+        
+        # Get today's attendance data
+        today_data = monthly_sheet.cell(user_row, today_column).value
+        
+        if not today_data:
+            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
+        
+        # Parse today's data to determine status
+        if '-' in today_data and not today_data.endswith('-'):
+            # Has both check-in and check-out times
+            return {
+                'checked_in': False,
+                'user_name': user_name,
+                'today_hours': calculate_hours_from_data(today_data),
+                'check_in_time': today_data.split('-')[0].strip(),
+                'check_out_time': today_data.split('-')[1].strip()
+            }
+        elif today_data.endswith('-'):
+            # Only check-in time (checked in)
+            check_in_time = today_data.replace('-', '').strip()
+            return {
+                'checked_in': True,
+                'user_name': user_name,
+                'today_hours': '0h 0m',
+                'check_in_time': check_in_time
+            }
+        else:
+            # Only check-in time without dash
+            return {
+                'checked_in': True,
+                'user_name': user_name,
+                'today_hours': '0h 0m',
+                'check_in_time': today_data
+            }
+            
+    except Exception as e:
+        logger.error(f"Error getting user working status: {e}")
+        return {'checked_in': False, 'error': str(e)}
+
+async def update_working_status(user_id, checked_in, check_in_time=None, check_out_time=None, work_hours=None, location=None):
+    """Update user's working status in Google Sheets"""
+    try:
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            return False
+        
+        # Get user name from WORKERS sheet
+        workers_sheet = sheets_data['sheets']['workers']
+        workers_data = workers_sheet.get_all_values()
+        
+        user_name = None
+        for row in workers_data[1:]:  # Skip header row
+            if len(row) >= 2 and str(user_id) == str(row[1]):  # Check ID column
+                user_name = row[0]  # Get name from column A
+                break
+        
+        if not user_name:
+            logger.error(f"User {user_id} not found in workers sheet")
+            return False
+        
+        # Get today's column in monthly sheet
+        today_column = get_today_column()
+        if today_column is None:
+            logger.error("Could not determine today's column")
+            return False
+        
+        # Find user's row in monthly sheet
+        monthly_sheet = sheets_data['sheets']['august_2025']
+        monthly_data = monthly_sheet.get_all_values()
+        
+        user_row = None
+        for i, row in enumerate(monthly_data[2:], start=3):  # Skip header rows, start from row 3
+            if len(row) > 0 and row[0] == user_name:  # Check name column
+                user_row = i
+                break
+        
+        if not user_row:
+            logger.error(f"User {user_name} not found in monthly sheet")
+            return False
+        
+        # Prepare today's data
+        if checked_in:
+            # Check in - store time with dash
+            today_data = f"{check_in_time}-"
+        else:
+            # Check out - get existing check-in time and add check-out
+            existing_data = monthly_sheet.cell(user_row, today_column).value or ""
+            if existing_data.endswith('-'):
+                check_in_time = existing_data.replace('-', '').strip()
+                today_data = f"{check_in_time}-{check_out_time}"
+            else:
+                # No existing check-in time, just store check-out
+                today_data = check_out_time
+        
+        # Update the cell
+        monthly_sheet.update_cell(user_row, today_column, today_data)
+        
+        logger.info(f"Updated working status for user {user_id}: {today_data}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error updating working status: {e}")
+        return False
+
+def get_today_column():
+    """Get today's column number in the monthly sheet"""
+    try:
+        today = datetime.now()
+        
+        # For August 2025 sheet, columns are:
+        # A: NAME, B: 8/1/2025, C: 8/2/2025, etc.
+        
+        if today.month == 8 and today.year == 2025:
+            # August 2025 - columns start from B (index 2)
+            day = today.day
+            if 1 <= day <= 10:  # Only days 1-10 are tracked
+                return day + 1  # Column B = 2, C = 3, etc.
+        
+        # If not August 2025 or day not in range, return None
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error getting today's column: {e}")
+        return None
+
+def calculate_hours_from_data(time_data):
+    """Calculate work hours from time data string"""
+    try:
+        if '-' not in time_data or time_data.endswith('-'):
+            return '0h 0m'
+        
+        # Parse times
+        check_in_str, check_out_str = time_data.split('-', 1)
+        check_in_str = check_in_str.strip()
+        check_out_str = check_out_str.strip()
+        
+        if not check_in_str or not check_out_str:
+            return '0h 0m'
+        
+        # Parse times
+        check_in = datetime.strptime(check_in_str, "%H:%M")
+        check_out = datetime.strptime(check_out_str, "%H:%M")
+        
+        # Calculate difference
+        diff = check_out - check_in
+        
+        # Convert to hours and minutes
+        total_minutes = int(diff.total_seconds() / 60)
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        
+        return f"{hours}h {minutes}m"
+        
+    except Exception as e:
+        logger.error(f"Error calculating hours from data: {e}")
+        return '0h 0m'
