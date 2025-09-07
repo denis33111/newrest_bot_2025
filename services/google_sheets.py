@@ -183,7 +183,18 @@ def save_worker_data(data):
         logger.info(f"Worker row to append: {worker_row}")
         
         # Add row to WORKERS sheet
-        workers_sheet.append_row(worker_row)
+        try:
+            workers_sheet.append_row(worker_row)
+            logger.info(f"append_row() completed successfully for user {data.get('user_id')}")
+            
+            # Verify the data was actually added
+            all_values = workers_sheet.get_all_values()
+            logger.info(f"Total rows in WORKERS sheet after append: {len(all_values)}")
+            logger.info(f"Last row in WORKERS sheet: {all_values[-1] if all_values else 'EMPTY'}")
+            
+        except Exception as append_error:
+            logger.error(f"append_row() failed for user {data.get('user_id')}: {append_error}")
+            return False
         
         logger.info(f"Worker data saved for user {data.get('user_id')}")
         return True
