@@ -4,6 +4,7 @@ Registration Flow Handler
 Manages the complete registration process
 """
 
+import os
 import logging
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from handlers.language_system import get_text, get_buttons, get_language_from_text
