@@ -113,7 +113,7 @@ Ready to start your work session! Use the buttons below."""
             if status.get('checked_in', False):
                 await self.bot.send_message(
                     chat_id=self.user_id,
-                    text="⚠️ **Already Checked In**\n\nYou are already checked in. Use 'Check Out' to end your session.",
+                    text="✅ **Already Checked In**\n\nYou're already checked in and working.\n\nUse 'Check Out' when you finish your work session.",
                     parse_mode='Markdown'
                 )
                 return
@@ -133,7 +133,7 @@ Ready to start your work session! Use the buttons below."""
             if not status.get('checked_in', False):
                 await self.bot.send_message(
                     chat_id=self.user_id,
-                    text="⚠️ **Not Checked In**\n\nYou need to check in first before checking out.",
+                    text="ℹ️ **Not Checked In**\n\nYou need to check in first before you can check out.\n\nUse 'Check In' to start your work session.",
                     parse_mode='Markdown'
                 )
                 return
@@ -158,14 +158,14 @@ Ready to start your work session! Use the buttons below."""
         
         message = """🟢 **Check In - Location Required**
 
-Please share your current location to verify you are at the work location.
+To check in, please share your current location.
 
-**Steps:**
+**How to share location:**
 1. Tap 'Share Location' below
-2. Allow location access
+2. Allow location access when prompted
 3. Select 'Send Location'
 
-This ensures accurate attendance tracking."""
+**Note:** You must be within 500m of the work location to check in successfully."""
         
         await self.bot.send_message(
             chat_id=self.user_id,
@@ -187,14 +187,14 @@ This ensures accurate attendance tracking."""
         
         message = """🔚 **Check Out - Location Required**
 
-Please share your current location to complete your work session.
+To check out, please share your current location.
 
-**Steps:**
+**How to share location:**
 1. Tap 'Share Location' below
-2. Allow location access
+2. Allow location access when prompted
 3. Select 'Send Location'
 
-This ensures accurate time tracking."""
+**Note:** You must be within 500m of the work location to check out successfully."""
         
         await self.bot.send_message(
             chat_id=self.user_id,
@@ -212,7 +212,7 @@ This ensures accurate time tracking."""
             if not is_valid:
                 await self.bot.send_message(
                     chat_id=self.user_id,
-                    text="❌ **Invalid Location**\n\nYou must be at the work location to check in/out. Please try again.",
+                    text="📍 **Location Not Valid**\n\nYou need to be within 500m of the work location to check in/out.\n\n**Please:**\n• Make sure you're at the work location\n• Check your GPS signal\n• Try sharing location again\n\n*Location verification ensures accurate attendance tracking.*",
                     parse_mode='Markdown'
                 )
                 # Show working console again
@@ -357,11 +357,16 @@ This feature will connect you directly with the crew assistant for any questions
     
     async def _send_error_message(self):
         """Send error message"""
-        message = """❌ **System Error**
+        message = """❌ **Something went wrong**
 
 Sorry, there was an error processing your request.
 
-Please try again or contact support if the problem persists."""
+**Please try:**
+• Check your internet connection
+• Try again in a moment
+• Contact support if the problem continues
+
+*We're working to fix this issue.*"""
         
         await self.bot.send_message(
             chat_id=self.user_id,

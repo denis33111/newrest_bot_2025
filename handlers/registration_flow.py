@@ -177,7 +177,7 @@ class RegistrationFlow:
             ('address', 'ADDRESS'),
             ('transportation', 'TRANSPORT'),
             ('bank', 'BANK'),
-            ('driving_license', 'DR_LICENCE_NO')
+            ('driving_license', 'DRIVING LICENSE')
         ]
         
         for field, label in fields:
