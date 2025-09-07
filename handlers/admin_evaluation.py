@@ -39,23 +39,16 @@ class AdminEvaluation:
             bank = self.candidate_data.get('bank', 'Unknown')
             driving_license = self.candidate_data.get('driving_license', 'Unknown')
             
-            message = f"""🔔 **New Candidate Registration**
+            message = f"""🔔 Νέα Αίτηση Εγγραφής
 
-**Candidate Details:**
-👤 **Name:** {name}
-🆔 **User ID:** {user_id}
-📅 **Age:** {age}
-📞 **Phone:** {phone}
-📧 **Email:** {email}
-🚗 **Transportation:** {transportation}
-🏦 **Bank:** {bank}
-🚙 **Driving License:** {driving_license}
+👤 Υποψήφιος: {name}
+🆔 ID: {user_id}
 
-Click below to start evaluation:"""
+Κάντε κλικ για αξιολόγηση:"""
 
             keyboard = [[
                 InlineKeyboardButton(
-                    "Start Evaluation",
+                    "Ξεκινήστε Αξιολόγηση",
                     callback_data=f"admin_eval_start_{user_id}"
                 )
             ]]
@@ -201,40 +194,44 @@ Select the appropriate position:"""
     def calculate_course_dates(self, position):
         """Calculate available course dates based on position"""
         try:
-            # Get current date
-            today = datetime.now()
+            from datetime import datetime, timedelta
+            import pytz
             
-            # Calculate next available dates (example logic)
+            # Set timezone to Greece
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            
+            # Calculate next available dates based on position
             dates = []
             
-            # Next Monday
-            next_monday = today + timedelta(days=(7 - today.weekday()) % 7)
-            if next_monday.weekday() == 0:  # If today is Monday, get next Monday
-                next_monday += timedelta(days=7)
+            if position == 'EQ':
+                # EQ Position → Next 2 Fridays (not today)
+                target_weekday = 4  # Friday
+                day_name = 'Friday'
+            else:
+                # HL and Supervisor → Next 2 Thursdays (not today)
+                target_weekday = 3  # Thursday
+                day_name = 'Thursday'
             
+            # Calculate next target day
+            days_ahead = target_weekday - now.weekday()
+            if days_ahead <= 0:  # Target day already happened this week
+                days_ahead += 7
+            
+            # First target day (next week)
+            first_date = now + timedelta(days=days_ahead)
             dates.append({
-                'date': next_monday.strftime('%Y-%m-%d'),
-                'day': 'Monday',
-                'description': 'Next Monday'
+                'date': first_date.strftime('%Y-%m-%d'),
+                'day': day_name,
+                'description': f'Next {day_name}'
             })
             
-            # Same day next week
-            same_day_next_week = today + timedelta(days=7)
+            # Second target day (following week)
+            second_date = first_date + timedelta(days=7)
             dates.append({
-                'date': same_day_next_week.strftime('%Y-%m-%d'),
-                'day': same_day_next_week.strftime('%A'),
-                'description': 'Same day next week'
-            })
-            
-            # Next Tuesday
-            next_tuesday = today + timedelta(days=(8 - today.weekday()) % 7)
-            if next_tuesday.weekday() == 1:  # If today is Tuesday, get next Tuesday
-                next_tuesday += timedelta(days=7)
-            
-            dates.append({
-                'date': next_tuesday.strftime('%Y-%m-%d'),
-                'day': 'Tuesday',
-                'description': 'Next Tuesday'
+                'date': second_date.strftime('%Y-%m-%d'),
+                'day': day_name,
+                'description': f'Following {day_name}'
             })
             
             return dates
@@ -248,6 +245,10 @@ Select the appropriate position:"""
         try:
             # Update WORKERS sheet
             success = await self.update_worker_status(position, course_date, approved)
+            
+            # Also update REGISTRATION sheet with course info
+            if approved:
+                await self.update_registration_sheet(position, course_date)
             
             if success:
                 # Notify user
@@ -322,11 +323,45 @@ Select the appropriate position:"""
             logger.error(f"Error updating worker status: {e}")
             return False
     
+    async def update_registration_sheet(self, position, course_date):
+        """Update REGISTRATION sheet with course info"""
+        try:
+            from services.google_sheets import init_google_sheets
+            
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return False
+            
+            registration_sheet = sheets_data['sheets']['registration']
+            
+            # Find user row in REGISTRATION sheet
+            id_column = registration_sheet.col_values(2)  # Column B - ID
+            user_row = None
+            for i, user_id_in_sheet in enumerate(id_column[1:], start=2):  # Skip header row
+                if str(self.user_id) == str(user_id_in_sheet):
+                    user_row = i
+                    break
+            
+            if not user_row:
+                logger.error(f"User {self.user_id} not found in REGISTRATION sheet")
+                return False
+            
+            # Update position and course date in REGISTRATION sheet
+            registration_sheet.update_cell(user_row, 10, position)  # Column J - POSITION
+            registration_sheet.update_cell(user_row, 11, course_date)  # Column K - COURSE_DATE
+            
+            logger.info(f"Registration sheet updated for user {self.user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating registration sheet: {e}")
+            return False
+    
     async def notify_user_result(self, position, course_date, approved):
         """Notify user about evaluation result"""
         try:
             bot = Bot(token=self.bot_token)
-            name = self.candidate_data.get('full_name', 'Candidate')
+            name = self.candidate_data.get('full_name', 'Unknown')
             
             if approved:
                 message = f"""🎉 Συγχαρητήρια {name}!
