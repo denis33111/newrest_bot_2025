@@ -237,6 +237,10 @@ class RegistrationFlow:
         success = registration_success and worker_success
         
         if success:
+            # Store candidate data for admin evaluation
+            from handlers.message_handler import candidate_data_storage
+            candidate_data_storage[self.user_id] = self.data.copy()
+            
             # Notify admin group
             admin_eval = AdminEvaluation(self.user_id, self.data)
             await admin_eval.notify_admin_group()

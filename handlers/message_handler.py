@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 # Store active registration flows
 active_registrations = {}
 
+# Store candidate data for admin evaluation
+candidate_data_storage = {}
+
 async def handle_telegram_message(message):
     """Handle incoming Telegram messages"""
     try:
@@ -142,18 +145,17 @@ async def handle_admin_evaluation_callback(data):
         action = parts[2]  # start, continue, reject, position, date, custom
         user_id = parts[-1]  # Last part is always user_id
         
-        # Get candidate data from registration (this would need to be stored)
-        # For now, we'll create a basic structure
-        candidate_data = {
+        # Get candidate data from storage
+        candidate_data = candidate_data_storage.get(user_id, {
             'user_id': user_id,
-            'full_name': 'Unknown',  # This should be retrieved from storage
+            'full_name': 'Unknown',
             'age': 'Unknown',
             'phone': 'Unknown',
             'email': 'Unknown',
             'transportation': 'Unknown',
             'bank': 'Unknown',
             'driving_license': 'Unknown'
-        }
+        })
         
         admin_eval = AdminEvaluation(user_id, candidate_data)
         
@@ -167,8 +169,8 @@ async def handle_admin_evaluation_callback(data):
             position = parts[3]  # HL, Supervisor, EQ
             await admin_eval.ask_course_date(position)
         elif action == 'date':
-            position = parts[3]  # Position from previous step
-            course_date = parts[4]  # Selected date
+            course_date = parts[3]  # Selected date
+            position = admin_eval.selected_position or 'Unknown'  # Use stored position
             await admin_eval.save_evaluation(position, course_date, approved=True)
         elif action == 'custom':
             # Handle custom date input (would need additional implementation)

@@ -19,6 +19,7 @@ class AdminEvaluation:
         self.bot_token = os.getenv('BOT_TOKEN')
         self.admin_group_id = os.getenv('ADMIN_GROUP_ID')
         self.evaluation_data = {}
+        self.selected_position = None
         
     async def notify_admin_group(self):
         """Send notification to admin group about new registration"""
@@ -147,6 +148,9 @@ Select the appropriate position:"""
     async def ask_course_date(self, position):
         """Ask for course date selection"""
         try:
+            # Store the selected position
+            self.selected_position = position
+            
             bot = Bot(token=self.bot_token)
             
             # Calculate course dates based on position
