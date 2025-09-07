@@ -217,7 +217,13 @@ def webhook():
     
     # Process Telegram update
     if data and 'message' in data:
-        asyncio.create_task(handle_telegram_message(data['message']))
+        # Run async function in new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(handle_telegram_message(data['message']))
+        finally:
+            loop.close()
     
     return jsonify({'status': 'ok'})
 
