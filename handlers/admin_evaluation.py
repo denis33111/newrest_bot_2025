@@ -384,7 +384,9 @@ class AdminEvaluation:
         """Notify user about evaluation result"""
         try:
             bot = Bot(token=self.bot_token)
+            logger.info(f"notify_user_result - candidate_data: {self.candidate_data}")
             name = self.candidate_data.get('full_name', 'Unknown')
+            logger.info(f"notify_user_result - extracted name: {name}")
             
             if approved:
                 message = f"""🎉 Συγχαρητήρια {name}!
