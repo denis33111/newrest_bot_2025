@@ -361,6 +361,22 @@ class AdminEvaluation:
             # Update course date in REGISTRATION sheet (Column R)
             # Note: REGISTRATION sheet doesn't have a POSITION column
             registration_sheet.update_cell(user_row, 18, course_date)  # Column R - COURSE_DATE
+            
+            # Calculate and update pre-course reminder (1 day before course date)
+            try:
+                from datetime import datetime, timedelta
+                course_date_obj = datetime.strptime(course_date, '%Y-%m-%d')
+                pre_course_date = course_date_obj - timedelta(days=1)
+                pre_course_reminder = pre_course_date.strftime('%Y-%m-%d')
+                registration_sheet.update_cell(user_row, 19, pre_course_reminder)  # Column S - PRE_COURSE_REMINDER
+                logger.info(f"Pre-course reminder set to {pre_course_reminder} for course on {course_date}")
+            except Exception as e:
+                logger.error(f"Error calculating pre-course reminder: {e}")
+            
+            # Update day-course reminder (same day as course date)
+            registration_sheet.update_cell(user_row, 20, course_date)  # Column T - DAY_COURSE_REMINDER
+            logger.info(f"Day-course reminder set to {course_date}")
+            
             logger.info(f"REGISTRATION sheet updated - Course Date: {course_date}")
             
             logger.info(f"Registration sheet updated for user {self.user_id}")
