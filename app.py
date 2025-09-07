@@ -6,7 +6,7 @@ NewRest Bot 2025 - Main Flask Application
 import os
 import asyncio
 import logging
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from services.google_sheets import init_google_sheets
 from services.telegram_bot import setup_webhook
 from handlers.message_handler import handle_telegram_message, handle_callback_query
@@ -158,6 +158,19 @@ async def test_all():
     return jsonify(results)
 
 # Telegram webhook endpoint
+@app.route('/download/<filename>')
+def download_file(filename):
+    """Download files like PDFs"""
+    try:
+        file_path = os.path.join(os.getcwd(), filename)
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True)
+        else:
+            return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        logger.error(f"Error downloading file {filename}: {e}")
+        return jsonify({'error': 'Download failed'}), 500
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     """Telegram webhook endpoint"""

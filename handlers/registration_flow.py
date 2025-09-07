@@ -260,6 +260,8 @@ class RegistrationFlow:
 
 • ΑΦΜ, ΑΜΑ, ΑΜΚΑ και μία διεύθυνση.
 
+📄 Υπεύθυνη δήλωση ποινικού μητρώου: https://newrest-bot-2025.onrender.com/download/ΥΠ_ΔΗΛΩΣΗ_ΠΟΙΝΙΚΟΥ%20(1).pdf
+
 Ευχαριστούμε! Παρακαλώ προχωρήστε στο επόμενο βήμα όπως σας ενημερώσαμε."""
             else:
                 message = """🎉 Congratulations! You have successfully passed the first stage.
@@ -285,6 +287,8 @@ The file that has been sent to you can be validated using the gov.gr service "Di
 Follow the steps: connect with TAXISnet, upload the file, choose signature in Greek, request SMS code, enter it and download the certified document. Then send us a clear photo of the QR code.
 
 • AFM, AMA, AMKA and your home address.
+
+📄 Criminal record declaration form: https://newrest-bot-2025.onrender.com/download/ΥΠ_ΔΗΛΩΣΗ_ΠΟΙΝΙΚΟΥ%20(1).pdf
 
 Thank you! Please come to the next step as instructed."""
             
