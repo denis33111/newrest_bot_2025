@@ -211,7 +211,7 @@ class RegistrationFlow:
         self.data['status'] = 'WAITING'
         
         # Save to Google Sheets
-        success = await save_registration_data(self.data)
+        success = save_registration_data(self.data)
         
         if success:
             message = f"✅ **Registration Complete!**\n\nYour registration has been submitted and is waiting for admin verification.\n\nYou will receive a notification once approved."
