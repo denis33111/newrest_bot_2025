@@ -313,11 +313,26 @@ Please try again later.
     """
     await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
 
+async def setup_webhook():
+    """Set up Telegram webhook"""
+    try:
+        webhook_url = f"{WEBHOOK_URL}/webhook"
+        await bot.set_webhook(url=webhook_url)
+        logger.info(f"Webhook set to: {webhook_url}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to set webhook: {e}")
+        return False
+
 if __name__ == '__main__':
     # Test all connections on startup
     print("🚀 Starting NewRest Bot 2025...")
     print(f"📱 Bot Token: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
     print(f"📊 Sheets ID: {'✅ Set' if GOOGLE_SHEETS_ID else '❌ Missing'}")
     print(f"🔗 Webhook URL: {WEBHOOK_URL}")
+    
+    # Set up webhook
+    if BOT_TOKEN and WEBHOOK_URL:
+        asyncio.run(setup_webhook())
     
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
