@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-NewRest Bot 2025 - Health Check & Connection Test
-Minimal script to verify all connections are working
+NewRest Bot 2025 - Main Flask Application
 """
 
 import os
 import asyncio
 import logging
 from flask import Flask, jsonify, request
-from telegram import Bot
-import gspread
-from google.oauth2.service_account import Credentials
+from services.google_sheets import init_google_sheets
+from services.telegram_bot import setup_webhook
+from handlers.message_handler import handle_telegram_message
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,55 +24,6 @@ ADMIN_GROUP_ID = os.getenv('ADMIN_GROUP_ID')
 GOOGLE_SHEETS_ID = os.getenv('GOOGLE_SHEETS_ID')
 GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv('GOOGLE_SERVICE_ACCOUNT_EMAIL')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
-
-# Bot will be created per request to avoid event loop issues
-
-# Initialize Google Sheets
-def init_google_sheets():
-    """Initialize Google Sheets connection"""
-    try:
-        # Parse private key
-        private_key = os.getenv('GOOGLE_PRIVATE_KEY').replace('\\n', '\n')
-        
-        # Define scope
-        scope = [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive'
-        ]
-        
-        # Create credentials
-        credentials = Credentials.from_service_account_info({
-            "type": "service_account",
-            "project_id": "newrest-465515",
-            "private_key_id": "your-key-id",
-            "private_key": private_key,
-            "client_email": GOOGLE_SERVICE_ACCOUNT_EMAIL,
-            "client_id": "your-client-id",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{GOOGLE_SERVICE_ACCOUNT_EMAIL}"
-        }, scopes=scope)
-        
-        # Initialize gspread client
-        gc = gspread.authorize(credentials)
-        
-        # Open the spreadsheet
-        spreadsheet = gc.open_by_key(GOOGLE_SHEETS_ID)
-        
-        return {
-            'status': 'success',
-            'client': gc,
-            'spreadsheet': spreadsheet,
-            'sheets': {
-                'registration': spreadsheet.worksheet('REGISTRATION'),
-                'workers': spreadsheet.worksheet('WORKERS'),
-                'august_2025': spreadsheet.worksheet('2025/8')
-            }
-        }
-    except Exception as e:
-        logger.error(f"Google Sheets initialization failed: {e}")
-        return {'status': 'error', 'error': str(e)}
 
 # Health check endpoint
 @app.route('/health', methods=['GET'])
@@ -229,113 +179,6 @@ def webhook():
             logger.error(f"Error in event loop: {e}")
     
     return jsonify({'status': 'ok'})
-
-async def handle_telegram_message(message):
-    """Handle incoming Telegram messages"""
-    try:
-        user_id = message['from']['id']
-        username = message['from'].get('username', 'Unknown')
-        text = message.get('text', '')
-        
-        logger.info(f"Processing message from user {user_id} ({username}): {text}")
-        
-        # Check if user is in WORKERS sheet
-        user_status = check_user_status(user_id)
-        
-        if user_status == 'WORKING':
-            await send_working_console(user_id)
-        elif user_status == 'NOT_FOUND':
-            await send_registration_flow(user_id)
-        elif user_status == 'OFF':
-            # Disabled user - no response
-            logger.info(f"Disabled user {user_id} - ignoring message")
-            return
-        else:
-            await send_error_message(user_id)
-            
-    except Exception as e:
-        logger.error(f"Error handling Telegram message: {e}")
-
-def check_user_status(user_id):
-    """Check user status in WORKERS sheet"""
-    try:
-        sheets_data = init_google_sheets()
-        if sheets_data['status'] != 'success':
-            return 'ERROR'
-        
-        workers_sheet = sheets_data['sheets']['workers']
-        workers_data = workers_sheet.get_all_values()
-        
-        # Check if user_id exists in the sheet
-        for row in workers_data[1:]:  # Skip header row
-            if len(row) >= 2 and str(user_id) == str(row[1]):  # Check ID column
-                status = row[2] if len(row) > 2 else 'UNKNOWN'  # Check STATUS column
-                return status
-        
-        return 'NOT_FOUND'
-        
-    except Exception as e:
-        logger.error(f"Error checking user status: {e}")
-        return 'ERROR'
-
-async def send_working_console(user_id):
-    """Send working console message"""
-    message = """
-🚀 **Working Console - Coming Soon**
-
-Welcome back! Your working console is being prepared.
-
-**Available Soon:**
-• Check-in/out system
-• Daily attendance tracking
-• Schedule management
-• Status updates
-
-Stay tuned! 🎯
-    """
-    bot = Bot(token=BOT_TOKEN)
-    await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
-
-async def send_registration_flow(user_id):
-    """Send registration flow message"""
-    message = """
-📝 **Registration Flow - Coming Soon**
-
-Welcome! You need to complete registration first.
-
-**Registration Process:**
-• Step 1: Personal data input
-• Step 2: Admin verification
-• Step 3: Course date confirmation
-
-**Coming Soon!** 🎯
-    """
-    bot = Bot(token=BOT_TOKEN)
-    await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
-
-async def send_error_message(user_id):
-    """Send error message"""
-    message = """
-❌ **System Error**
-
-Sorry, there was an error processing your request.
-
-Please try again later.
-    """
-    bot = Bot(token=BOT_TOKEN)
-    await bot.send_message(chat_id=user_id, text=message, parse_mode='Markdown')
-
-async def setup_webhook():
-    """Set up Telegram webhook"""
-    try:
-        webhook_url = WEBHOOK_URL  # Already includes /webhook
-        bot = Bot(token=BOT_TOKEN)
-        await bot.set_webhook(url=webhook_url)
-        logger.info(f"Webhook set to: {webhook_url}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to set webhook: {e}")
-        return False
 
 if __name__ == '__main__':
     # Test all connections on startup
