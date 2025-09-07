@@ -67,8 +67,13 @@ async def handle_registration_message(user_id, text):
 async def handle_callback_query(callback_query):
     """Handle callback queries (button presses)"""
     try:
-        user_id = callback_query.from_user.id
-        data = callback_query.data
+        # Handle both dict and Telegram object
+        if isinstance(callback_query, dict):
+            user_id = callback_query['from']['id']
+            data = callback_query['data']
+        else:
+            user_id = callback_query.from_user.id
+            data = callback_query.data
         
         # Handle registration callbacks
         if user_id in active_registrations:
@@ -86,8 +91,9 @@ async def handle_callback_query(callback_query):
                 # Handle selection answers
                 await registration.handle_selection_answer(data)
         
-        # Answer the callback query
-        await callback_query.answer()
+        # Answer the callback query (only if it's a Telegram object)
+        if not isinstance(callback_query, dict):
+            await callback_query.answer()
         
     except Exception as e:
         logger.error(f"Error handling callback query: {e}")

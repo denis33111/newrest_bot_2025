@@ -1,105 +1,86 @@
 # System Patterns - NewRest Bot 2025
 
 ## Architecture Overview
-The system follows a **webhook-based microservice architecture** with clear separation of concerns:
-
 ```
-Telegram Bot API → Flask Webhook → Handler Layer → Service Layer → Google Sheets API
-```
-
-## Key Technical Decisions
-
-### 1. **Webhook Architecture**
-- **Pattern**: Event-driven webhook processing
-- **Rationale**: Real-time updates, scalable, stateless
-- **Implementation**: Flask webhook endpoints with async processing
-
-### 2. **Handler-Service Separation**
-- **Pattern**: Layered architecture with clear boundaries
-- **Handlers**: Message routing, flow management, user interaction
-- **Services**: External integrations, data persistence, business logic
-
-### 3. **State Management**
-- **Pattern**: In-memory state for active flows
-- **Implementation**: `active_registrations` dictionary for ongoing registrations
-- **Rationale**: Simple, fast, suitable for current scale
-
-## Component Relationships
-
-### Core Components
-```
-app.py (Flask App)
-├── handlers/
-│   ├── message_handler.py (Message routing)
-│   ├── registration_flow.py (Registration logic)
-│   └── language_system.py (I18n support)
-└── services/
-    ├── telegram_bot.py (Telegram integration)
-    └── google_sheets.py (Sheets integration)
+Telegram Bot API → Flask Webhook → Google Sheets API
+       ↓                ↓              ↓
+   User Interface → Message Handler → Data Storage
 ```
 
-### Data Flow Patterns
-1. **Registration Flow**: User → Telegram → Handler → Service → Google Sheets
-2. **Status Check**: User → Telegram → Handler → Service → Google Sheets → Response
-3. **Admin Operations**: External → Webhook → Service → Google Sheets
+## Core Components
 
-## Design Patterns in Use
+### 1. Flask Application (`app.py`)
+- **Webhook Endpoints**: `/webhook` for Telegram updates
+- **Health Checks**: `/health`, `/test/telegram`, `/test/sheets`, `/test/all`
+- **Async Support**: Event loop management for Telegram operations
+- **Error Handling**: Comprehensive logging and error responses
 
-### 1. **State Machine Pattern**
-- **Implementation**: RegistrationFlow class with step-based progression
-- **States**: Language → Personal Info → Selections → Review → Confirmation
-- **Transitions**: Clear state transitions with validation
+### 2. Message Handler (`handlers/message_handler.py`)
+- **Message Routing**: Directs messages to appropriate flows
+- **Registration Management**: Tracks active registration sessions
+- **Status Checking**: Validates user status in Google Sheets
+- **Callback Handling**: Manages button interactions
 
-### 2. **Strategy Pattern**
-- **Implementation**: Language system with different text/button strategies
-- **Usage**: Dynamic content based on user language preference
+### 3. Registration Flow (`handlers/registration_flow.py`)
+- **State Management**: Tracks registration progress through steps
+- **Data Collection**: Handles both text input and button selections
+- **Review System**: Allows editing before final submission
+- **Google Sheets Integration**: Saves completed registration data
 
-### 3. **Repository Pattern**
-- **Implementation**: Google Sheets service abstracts data access
-- **Benefits**: Centralized data operations, easy testing, consistent interface
+### 4. Language System (`handlers/language_system.py`)
+- **Bilingual Support**: Greek/English text and button options
+- **Dynamic Content**: Language-specific question sets
+- **User Detection**: Automatic language preference handling
 
-### 4. **Factory Pattern**
-- **Implementation**: Handler creation based on message type
-- **Usage**: Dynamic handler instantiation for different flows
+### 5. Telegram Service (`services/telegram_bot.py`)
+- **Bot Operations**: Message sending and webhook setup
+- **Console Messages**: Working user interface
+- **Error Messaging**: User-friendly error communication
 
-## Error Handling Patterns
+### 6. Google Sheets Service (`services/google_sheets.py`)
+- **Authentication**: Service account credentials management
+- **Multi-sheet Operations**: REGISTRATION, WORKERS, monthly sheets
+- **Data Validation**: User status checking and data integrity
+- **Real-time Updates**: Immediate data synchronization
 
-### 1. **Graceful Degradation**
-- **Implementation**: Try-catch blocks with fallback responses
-- **Example**: Google Sheets errors → User-friendly error messages
+## Design Patterns
 
-### 2. **Circuit Breaker**
-- **Implementation**: Connection retry logic in services
-- **Usage**: Prevent cascading failures from external APIs
+### Registration Flow Pattern
+```
+Language Selection → Personal Data → Selection Questions → Review → Confirmation
+```
 
-### 3. **Logging Strategy**
-- **Implementation**: Structured logging with context
-- **Levels**: INFO for normal flow, ERROR for failures, DEBUG for troubleshooting
+### State Management Pattern
+- **Active Registrations**: Dictionary tracking user sessions
+- **Step Progression**: Sequential data collection
+- **Data Persistence**: Temporary storage during registration
 
-## Data Patterns
+### Error Handling Pattern
+- **Graceful Degradation**: Fallback messages for failures
+- **Logging**: Comprehensive error tracking
+- **User Feedback**: Clear error communication
 
-### 1. **Data Validation**
-- **Pattern**: Input validation at handler level
-- **Implementation**: Type checking, format validation, business rule validation
-
-### 2. **Data Transformation**
-- **Pattern**: Handler-to-Service data mapping
-- **Implementation**: Convert Telegram data to Google Sheets format
-
-### 3. **Data Consistency**
-- **Pattern**: Single source of truth (Google Sheets)
-- **Implementation**: All data operations go through Google Sheets service
+### Data Flow Pattern
+```
+User Input → Validation → Google Sheets → Status Update → User Notification
+```
 
 ## Integration Patterns
 
-### 1. **Webhook Processing**
-- **Pattern**: Asynchronous webhook handling
-- **Implementation**: Event loop management for async operations
+### Google Sheets Integration
+- **Service Account**: Secure API authentication
+- **Multi-sheet Access**: REGISTRATION, WORKERS, monthly sheets
+- **Data Mapping**: Column-specific data placement
+- **Error Recovery**: Retry mechanisms for API failures
 
-### 2. **External API Integration**
-- **Pattern**: Service abstraction layer
-- **Implementation**: Telegram and Google Sheets services with error handling
+### Telegram Integration
+- **Webhook Architecture**: Real-time message processing
+- **Button Interactions**: Inline keyboard callbacks
+- **Message Types**: Text, buttons, and status updates
+- **Async Processing**: Non-blocking message handling
 
-### 3. **Configuration Management**
-- **Pattern**: Environment-based configuration
-- **Implementation**: Environment variables for all external dependencies
+## Security Patterns
+- **Environment Variables**: Secure credential management
+- **Input Validation**: User data sanitization
+- **Error Masking**: No sensitive data in error messages
+- **Rate Limiting**: Google Sheets API quota management

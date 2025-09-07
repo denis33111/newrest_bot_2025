@@ -1,61 +1,55 @@
 # Product Context - NewRest Bot 2025
 
-## Why This Project Exists
-The NewRest Bot addresses the critical need for efficient worker management in the hospitality/restaurant industry, specifically for temporary or seasonal workers who need:
-- Streamlined registration processes
-- Real-time attendance tracking
-- Document verification workflows
-- Multi-language support for diverse workforces
+## Problem Statement
+Restaurant/retail operations need efficient worker management systems that handle:
+- Complex registration processes with document verification
+- Daily attendance tracking across multiple shifts
+- Multi-language support for diverse workforce
+- Real-time data synchronization with administrative systems
 
-## Problems It Solves
-
-### 1. **Manual Registration Bottlenecks**
-- **Problem**: Paper-based registration forms are slow, error-prone, and difficult to track
-- **Solution**: Digital registration flow with real-time validation and immediate data capture
-
-### 2. **Attendance Tracking Chaos**
-- **Problem**: Manual attendance sheets are easily lost, duplicated, or inaccurate
-- **Solution**: Automated daily tracking with Google Sheets integration and real-time updates
-
-### 3. **Document Management Issues**
-- **Problem**: Critical documents (AMKA, AFM, health certificates) are often missing or expired
-- **Solution**: Centralized document tracking with status monitoring and reminder systems
-
-### 4. **Language Barriers**
-- **Problem**: Multi-national workforce creates communication challenges
-- **Solution**: Bilingual interface (Greek/English) with localized content
-
-## How It Should Work
-
-### User Experience Flow
-1. **Initial Contact**: User messages bot → Language selection
-2. **Registration**: Step-by-step data collection with validation
-3. **Admin Review**: Automated status tracking (WAITING → APPROVED → ACTIVE)
-4. **Daily Operations**: Check-in/out system for active workers
-5. **Ongoing Management**: Status updates and document reminders
-
-### Key User Journeys
-- **New Worker**: Language selection → Personal data → Document upload → Admin approval → Active status
-- **Active Worker**: Daily check-in → Attendance tracking → Status updates
-- **Admin**: Review registrations → Approve workers → Monitor attendance → Generate reports
+## Solution Approach
+A Telegram-based bot system that provides:
+- **Interactive Registration Flow**: Step-by-step data collection with validation
+- **Bilingual Support**: Greek/English interface for diverse users
+- **Google Sheets Integration**: Centralized data management and reporting
+- **Real-time Updates**: Webhook-based instant data synchronization
 
 ## User Experience Goals
 
-### Primary Users
-- **Workers**: Simple, intuitive registration and daily check-in
-- **Administrators**: Efficient review and approval workflows
-- **Managers**: Real-time visibility into workforce status
+### For Workers
+- **Simple Registration**: Clear, guided process with language selection
+- **Status Transparency**: Real-time updates on registration approval
+- **Easy Check-in**: Quick daily attendance logging
+- **Mobile-First**: Optimized for smartphone usage
 
-### Experience Principles
-1. **Simplicity**: Minimal steps, clear instructions, intuitive interface
-2. **Reliability**: 24/7 availability, consistent performance
-3. **Transparency**: Clear status updates, real-time feedback
-4. **Accessibility**: Multi-language support, mobile-friendly
-5. **Efficiency**: Quick registration, instant data sync
+### For Administrators
+- **Centralized Data**: All worker information in Google Sheets
+- **Status Management**: Easy approval/rejection workflows
+- **Attendance Reports**: Daily and monthly tracking capabilities
+- **Document Tracking**: Monitor required certifications and IDs
+
+## Key Features
+
+### Registration System
+- Language selection (Greek/English)
+- Personal data collection (name, age, contact info)
+- Document tracking (AMKA, AFM, health certificates)
+- Status workflow management
+
+### Daily Operations
+- Worker check-in/out system
+- Attendance tracking for specific periods (August 1-10, 2025)
+- Monthly sheet generation
+- Status monitoring
+
+### Data Management
+- Multi-sheet Google Sheets integration
+- Cross-reference validation
+- Real-time synchronization
+- Error handling and recovery
 
 ## Success Metrics
-- **Registration Completion Rate**: >90% of started registrations completed
-- **Response Time**: <2 seconds for all bot interactions
-- **Data Accuracy**: 99%+ accuracy in Google Sheets synchronization
-- **User Satisfaction**: Positive feedback on registration flow simplicity
-- **Uptime**: 99.9% availability on render.com platform
+- Registration completion rate > 90%
+- Average registration time < 5 minutes
+- Data accuracy > 99%
+- System uptime > 99.9%
