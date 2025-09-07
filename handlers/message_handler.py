@@ -35,6 +35,7 @@ async def handle_telegram_message(message):
         
         # Check if user is in WORKERS sheet
         user_status = check_user_status(user_id)
+        logger.info(f"User {user_id} status: {user_status}")
         
         if user_status == 'WORKING':
             # Handle working console messages
