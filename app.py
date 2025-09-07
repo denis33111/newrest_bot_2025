@@ -170,7 +170,32 @@ async def test_all():
     # Test Google Sheets
     try:
         sheets_data = init_google_sheets()
-        results['google_sheets'] = sheets_data
+        if sheets_data['status'] == 'success':
+            # Test reading from each sheet
+            registration_data = sheets_data['sheets']['registration'].get_all_values()
+            workers_data = sheets_data['sheets']['workers'].get_all_values()
+            august_data = sheets_data['sheets']['august_2025'].get_all_values()
+            
+            results['google_sheets'] = {
+                'status': 'success',
+                'spreadsheet_id': GOOGLE_SHEETS_ID,
+                'sheets': {
+                    'registration': {
+                        'rows': len(registration_data),
+                        'columns': len(registration_data[0]) if registration_data else 0
+                    },
+                    'workers': {
+                        'rows': len(workers_data),
+                        'columns': len(workers_data[0]) if workers_data else 0
+                    },
+                    'august_2025': {
+                        'rows': len(august_data),
+                        'columns': len(august_data[0]) if august_data else 0
+                    }
+                }
+            }
+        else:
+            results['google_sheets'] = sheets_data
     except Exception as e:
         results['google_sheets'] = {'status': 'error', 'error': str(e)}
     
