@@ -316,7 +316,7 @@ Please try again later.
 async def setup_webhook():
     """Set up Telegram webhook"""
     try:
-        webhook_url = f"{WEBHOOK_URL}/webhook"
+        webhook_url = WEBHOOK_URL  # Already includes /webhook
         await bot.set_webhook(url=webhook_url)
         logger.info(f"Webhook set to: {webhook_url}")
         return True
