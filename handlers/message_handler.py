@@ -19,6 +19,9 @@ active_registrations = {}
 # Store candidate data for admin evaluation
 candidate_data_storage = {}
 
+# Store admin evaluation instances to maintain state
+admin_evaluation_instances = {}
+
 async def handle_telegram_message(message):
     """Handle incoming Telegram messages"""
     try:
@@ -158,7 +161,11 @@ async def handle_admin_evaluation_callback(data):
             'driving_license': 'Unknown'
         })
         
-        admin_eval = AdminEvaluation(user_id, candidate_data)
+        # Get or create admin evaluation instance to maintain state
+        if user_id not in admin_evaluation_instances:
+            admin_evaluation_instances[user_id] = AdminEvaluation(user_id, candidate_data)
+        
+        admin_eval = admin_evaluation_instances[user_id]
         
         if action == 'start':
             await admin_eval.start_evaluation()
@@ -174,6 +181,9 @@ async def handle_admin_evaluation_callback(data):
             course_date = parts[3]  # Selected date
             position = admin_eval.selected_position or 'Unknown'  # Use stored position
             await admin_eval.save_evaluation(position, course_date, approved=True)
+            # Clean up after completion
+            if user_id in admin_evaluation_instances:
+                del admin_evaluation_instances[user_id]
         elif action == 'custom':
             # Handle custom date input (would need additional implementation)
             logger.info(f"Custom date requested for user {user_id}")
