@@ -321,20 +321,9 @@ class AdminEvaluation:
                 workers_sheet.update_cell(user_row, 5, position)  # Column E - POSITION
                 logger.info(f"WORKERS sheet updated - Position: {position}")
                 
-                # Calculate pre-course reminder (1 day before course date)
-                try:
-                    from datetime import datetime, timedelta
-                    course_date_obj = datetime.strptime(course_date, '%Y-%m-%d')
-                    pre_course_date = course_date_obj - timedelta(days=1)
-                    pre_course_reminder = pre_course_date.strftime('%Y-%m-%d')
-                    
-                    # Update pre-course reminder
-                    workers_sheet.update_cell(user_row, 19, pre_course_reminder)  # Column S - PRE_COURSE_REMINDER
-                    workers_sheet.update_cell(user_row, 20, course_date)  # Column T - DAY_COURSE_REMINDER
-                    
-                    logger.info(f"Pre-course reminder set to {pre_course_reminder} for course on {course_date}")
-                except Exception as e:
-                    logger.error(f"Error calculating pre-course reminder: {e}")
+                # Note: Pre-course and day-course reminders are not stored in WORKERS sheet
+                # as it only has 5 columns (A-E). Course date goes to REGISTRATION sheet only.
+                logger.info(f"Position {position} saved to WORKERS sheet. Course date goes to REGISTRATION sheet only.")
             else:
                 # Update status to STOP
                 workers_sheet.update_cell(user_row, 3, 'STOP')  # Column C - STATUS

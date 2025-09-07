@@ -168,6 +168,7 @@ async def handle_admin_evaluation_callback(data):
             await admin_eval.save_evaluation('', '', approved=False)
         elif action == 'position':
             position = parts[3]  # HL, Supervisor, EQ
+            admin_eval.selected_position = position  # Store position in the instance
             await admin_eval.ask_course_date(position)
         elif action == 'date':
             course_date = parts[3]  # Selected date
