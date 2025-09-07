@@ -358,10 +358,10 @@ class AdminEvaluation:
                 logger.error(f"User {self.user_id} not found in REGISTRATION sheet")
                 return False
             
-            # Update position and course date in REGISTRATION sheet
-            registration_sheet.update_cell(user_row, 10, position)  # Column J - POSITION
-            registration_sheet.update_cell(user_row, 11, course_date)  # Column K - COURSE_DATE
-            logger.info(f"REGISTRATION sheet updated - Position: {position}, Course Date: {course_date}")
+            # Update course date in REGISTRATION sheet (Column R)
+            # Note: REGISTRATION sheet doesn't have a POSITION column
+            registration_sheet.update_cell(user_row, 18, course_date)  # Column R - COURSE_DATE
+            logger.info(f"REGISTRATION sheet updated - Course Date: {course_date}")
             
             logger.info(f"Registration sheet updated for user {self.user_id}")
             return True
