@@ -182,18 +182,27 @@ def save_worker_data(data):
         
         logger.info(f"Worker row to append: {worker_row}")
         
-        # Add row to WORKERS sheet
+        # Add row to WORKERS sheet using specific range to ensure correct columns
         try:
-            workers_sheet.append_row(worker_row)
-            logger.info(f"append_row() completed successfully for user {data.get('user_id')}")
+            # Get the next available row
+            all_values = workers_sheet.get_all_values()
+            next_row = len(all_values) + 1
+            
+            # Update specific cells in the correct columns (A, B, C, D)
+            workers_sheet.update(f'A{next_row}', worker_row[0])  # NAME
+            workers_sheet.update(f'B{next_row}', worker_row[1])  # ID
+            workers_sheet.update(f'C{next_row}', worker_row[2])  # STATUS
+            workers_sheet.update(f'D{next_row}', worker_row[3])  # LANGUAGE
+            
+            logger.info(f"Worker data updated in row {next_row} for user {data.get('user_id')}")
             
             # Verify the data was actually added
             all_values = workers_sheet.get_all_values()
-            logger.info(f"Total rows in WORKERS sheet after append: {len(all_values)}")
+            logger.info(f"Total rows in WORKERS sheet after update: {len(all_values)}")
             logger.info(f"Last row in WORKERS sheet: {all_values[-1] if all_values else 'EMPTY'}")
             
-        except Exception as append_error:
-            logger.error(f"append_row() failed for user {data.get('user_id')}: {append_error}")
+        except Exception as update_error:
+            logger.error(f"Worker data update failed for user {data.get('user_id')}: {update_error}")
             return False
         
         logger.info(f"Worker data saved for user {data.get('user_id')}")
