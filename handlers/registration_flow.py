@@ -148,6 +148,11 @@ class RegistrationFlow:
         if callback_data.startswith('driving_license_'):
             field = 'driving_license'
             value = callback_data.replace('driving_license_', '')
+            # Convert English to Greek for consistency
+            if value == 'YES':
+                value = 'ΝΑΙ'
+            elif value == 'NO':
+                value = 'ΟΧΙ'
         else:
             field, value = callback_data.split('_', 1)
         
