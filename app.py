@@ -241,7 +241,7 @@ async def handle_telegram_message(message):
         logger.info(f"Processing message from user {user_id} ({username}): {text}")
         
         # Check if user is in WORKERS sheet
-        user_status = await check_user_status(user_id)
+        user_status = check_user_status(user_id)
         
         if user_status == 'WORKING':
             await send_working_console(user_id)
@@ -257,7 +257,7 @@ async def handle_telegram_message(message):
     except Exception as e:
         logger.error(f"Error handling Telegram message: {e}")
 
-async def check_user_status(user_id):
+def check_user_status(user_id):
     """Check user status in WORKERS sheet"""
     try:
         sheets_data = init_google_sheets()
