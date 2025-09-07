@@ -8,7 +8,7 @@ import os
 import logging
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from handlers.language_system import get_text, get_buttons, get_language_from_text
-from services.google_sheets import save_registration_data
+from services.google_sheets import save_registration_data, save_worker_data
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +230,10 @@ class RegistrationFlow:
         self.data['status'] = 'WAITING'
         
         # Save to Google Sheets
-        success = save_registration_data(self.data)
+        registration_success = save_registration_data(self.data)
+        worker_success = save_worker_data(self.data)
+        
+        success = registration_success and worker_success
         
         if success:
             # Send success message based on language

@@ -158,6 +158,33 @@ def save_registration_data(data):
         logger.error(f"Error saving registration data: {e}")
         return False
 
+def save_worker_data(data):
+    """Save worker data to WORKERS sheet"""
+    try:
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            return False
+        
+        workers_sheet = sheets_data['sheets']['workers']
+        
+        # Prepare worker data row
+        worker_row = [
+            data.get('full_name', ''),            # Column A - NAME
+            data.get('user_id', ''),              # Column B - ID
+            'WAITING',                            # Column C - STATUS
+            data.get('language', 'gr')            # Column D - LANGUAGE
+        ]
+        
+        # Add row to WORKERS sheet
+        workers_sheet.append_row(worker_row)
+        
+        logger.info(f"Worker data saved for user {data.get('user_id')}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error saving worker data: {e}")
+        return False
+
 # Working status and time tracking functions
 async def get_user_working_status(user_id):
     """Get user's current working status and today's data"""
