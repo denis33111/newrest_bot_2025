@@ -31,6 +31,11 @@
 - **Async Function Issues**: Some functions marked as async but not properly awaited
 - **Error Handling**: Some error cases not fully handled
 - **Work Location Configuration**: ✅ Set to 37.909416, 23.871109 with 500m radius
+- **Step Detection**: ✅ Bot now detects check-in vs check-out status
+- **Current Month**: ✅ Dynamic month detection with auto-creation
+- **Row Creation**: ✅ Auto-creates new rows for new users
+- **Greek Time**: ✅ Uses Greek timezone (Europe/Athens)
+- **Data Insertion**: ✅ Properly handles check-in and check-out data
 
 ## Next Steps
 

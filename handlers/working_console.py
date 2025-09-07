@@ -236,7 +236,8 @@ This ensures accurate time tracking."""
     async def _process_check_in(self, location):
         """Process successful check in"""
         try:
-            current_time = datetime.now().strftime("%H:%M")
+            from services.google_sheets import get_greek_time
+            current_time = get_greek_time()
             
             # Update working status
             success = await update_working_status(
@@ -273,7 +274,8 @@ Your work session has started!"""
     async def _process_check_out(self, location):
         """Process successful check out"""
         try:
-            current_time = datetime.now().strftime("%H:%M")
+            from services.google_sheets import get_greek_time
+            current_time = get_greek_time()
             
             # Get check in time to calculate hours
             status = await get_user_working_status(self.user_id)

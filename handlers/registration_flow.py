@@ -166,7 +166,7 @@ class RegistrationFlow:
     
     async def show_review_screen(self):
         """Show review screen with edit options"""
-        review_text = f"**4. Review & Confirmation**\n\n{get_text(self.language, 'review_title')}\n\n"
+        review_text = f"*4. Review & Confirmation*\n\n{get_text(self.language, 'review_title')}\n\n"
         
         # Add all collected data with edit buttons
         fields = [
@@ -182,7 +182,9 @@ class RegistrationFlow:
         
         for field, label in fields:
             value = self.data.get(field, 'Not set')
-            review_text += f"**{label}:** {value}\n"
+            # Escape special characters for Markdown
+            value = str(value).replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').replace('`', '\\`')
+            review_text += f"*{label}:* {value}\n"
         
         review_text += f"\n{get_text(self.language, 'edit_field')}"
         

@@ -167,8 +167,20 @@ async def get_user_working_status(user_id):
         if not user_name:
             return {'checked_in': False, 'error': 'User not found in workers sheet'}
         
-        # Check today's attendance in monthly sheet
-        monthly_sheet = sheets_data['sheets']['august_2025']
+        # Get current month sheet
+        current_month_sheet_name = get_current_month_sheet()
+        if not current_month_sheet_name:
+            return {'checked_in': False, 'error': 'Could not determine current month'}
+        
+        # Check if current month sheet exists, create if not
+        try:
+            monthly_sheet = sheets_data['spreadsheet'].worksheet(current_month_sheet_name)
+        except:
+            # Create new monthly sheet
+            monthly_sheet = create_monthly_sheet(sheets_data['spreadsheet'], current_month_sheet_name)
+            if not monthly_sheet:
+                return {'checked_in': False, 'error': 'Could not create monthly sheet'}
+        
         monthly_data = monthly_sheet.get_all_values()
         
         # Find user's row in monthly sheet
@@ -179,7 +191,10 @@ async def get_user_working_status(user_id):
                 break
         
         if not user_row:
-            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
+            # Create new row for user
+            user_row = create_user_row_in_monthly_sheet(monthly_sheet, user_name)
+            if not user_row:
+                return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
         
         # Get today's data from monthly sheet
         today_column = get_today_column()
@@ -251,10 +266,25 @@ async def update_working_status(user_id, checked_in, check_in_time=None, check_o
             logger.error("Could not determine today's column")
             return False
         
-        # Find user's row in monthly sheet
-        monthly_sheet = sheets_data['sheets']['august_2025']
+        # Get current month sheet
+        current_month_sheet_name = get_current_month_sheet()
+        if not current_month_sheet_name:
+            logger.error("Could not determine current month")
+            return False
+        
+        # Check if current month sheet exists, create if not
+        try:
+            monthly_sheet = sheets_data['spreadsheet'].worksheet(current_month_sheet_name)
+        except:
+            # Create new monthly sheet
+            monthly_sheet = create_monthly_sheet(sheets_data['spreadsheet'], current_month_sheet_name)
+            if not monthly_sheet:
+                logger.error("Could not create monthly sheet")
+                return False
+        
         monthly_data = monthly_sheet.get_all_values()
         
+        # Find user's row in monthly sheet
         user_row = None
         for i, row in enumerate(monthly_data[2:], start=3):  # Skip header rows, start from row 3
             if len(row) > 0 and row[0] == user_name:  # Check name column
@@ -262,8 +292,11 @@ async def update_working_status(user_id, checked_in, check_in_time=None, check_o
                 break
         
         if not user_row:
-            logger.error(f"User {user_name} not found in monthly sheet")
-            return False
+            # Create new row for user
+            user_row = create_user_row_in_monthly_sheet(monthly_sheet, user_name)
+            if not user_row:
+                logger.error(f"Could not create row for user {user_name}")
+                return False
         
         # Prepare today's data
         if checked_in:
@@ -273,8 +306,13 @@ async def update_working_status(user_id, checked_in, check_in_time=None, check_o
             # Check out - get existing check-in time and add check-out
             existing_data = monthly_sheet.cell(user_row, today_column).value or ""
             if existing_data.endswith('-'):
+                # Has check-in time, add check-out
                 check_in_time = existing_data.replace('-', '').strip()
                 today_data = f"{check_in_time}-{check_out_time}"
+            elif '-' in existing_data and not existing_data.endswith('-'):
+                # Already has both check-in and check-out, don't overwrite
+                logger.warning(f"User {user_name} already has complete data for today: {existing_data}")
+                return False
             else:
                 # No existing check-in time, just store check-out
                 today_data = check_out_time
@@ -292,22 +330,42 @@ async def update_working_status(user_id, checked_in, check_in_time=None, check_o
 def get_today_column():
     """Get today's column number in the monthly sheet"""
     try:
-        today = datetime.now()
+        # Get Greek timezone
+        import pytz
+        greek_tz = pytz.timezone('Europe/Athens')
+        today = datetime.now(greek_tz)
         
-        # For August 2025 sheet, columns are:
-        # A: NAME, B: 8/1/2025, C: 8/2/2025, etc.
+        # Get current month and year
+        current_month = today.month
+        current_year = today.year
+        current_day = today.day
         
-        if today.month == 8 and today.year == 2025:
-            # August 2025 - columns start from B (index 2)
-            day = today.day
-            if 1 <= day <= 10:  # Only days 1-10 are tracked
-                return day + 1  # Column B = 2, C = 3, etc.
+        # Create sheet name based on current month/year
+        sheet_name = f"{current_year}/{current_month}"
         
-        # If not August 2025 or day not in range, return None
+        # For monthly sheets, columns are:
+        # A: NAME, B: 1st, C: 2nd, D: 3rd, etc.
+        
+        if 1 <= current_day <= 31:  # All days of month are tracked
+            return current_day + 1  # Column B = 2, C = 3, etc.
+        
         return None
         
     except Exception as e:
         logger.error(f"Error getting today's column: {e}")
+        return None
+
+def get_current_month_sheet():
+    """Get the current month's sheet name"""
+    try:
+        import pytz
+        greek_tz = pytz.timezone('Europe/Athens')
+        today = datetime.now(greek_tz)
+        
+        return f"{today.year}/{today.month}"
+        
+    except Exception as e:
+        logger.error(f"Error getting current month sheet: {e}")
         return None
 
 def calculate_hours_from_data(time_data):
@@ -341,3 +399,62 @@ def calculate_hours_from_data(time_data):
     except Exception as e:
         logger.error(f"Error calculating hours from data: {e}")
         return '0h 0m'
+
+def create_monthly_sheet(spreadsheet, sheet_name):
+    """Create a new monthly sheet with proper structure"""
+    try:
+        # Create new worksheet
+        worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=100, cols=32)
+        
+        # Set up headers
+        headers = ['NAME']
+        
+        # Add day columns (1-31)
+        for day in range(1, 32):
+            headers.append(f"{day}")
+        
+        # Update headers
+        worksheet.update('A1:AF1', [headers])
+        
+        # Format headers
+        worksheet.format('A1:AF1', {
+            'backgroundColor': {'red': 0.8, 'green': 0.8, 'blue': 1.0},
+            'textFormat': {'bold': True}
+        })
+        
+        logger.info(f"Created monthly sheet: {sheet_name}")
+        return worksheet
+        
+    except Exception as e:
+        logger.error(f"Error creating monthly sheet {sheet_name}: {e}")
+        return None
+
+def create_user_row_in_monthly_sheet(monthly_sheet, user_name):
+    """Create a new row for user in monthly sheet"""
+    try:
+        # Get all values to find next empty row
+        all_values = monthly_sheet.get_all_values()
+        
+        # Find next empty row (start from row 2, after headers)
+        next_row = len(all_values) + 1
+        
+        # Add user name in column A
+        monthly_sheet.update_cell(next_row, 1, user_name)
+        
+        logger.info(f"Created row for user {user_name} at row {next_row}")
+        return next_row
+        
+    except Exception as e:
+        logger.error(f"Error creating row for user {user_name}: {e}")
+        return None
+
+def get_greek_time():
+    """Get current time in Greek timezone"""
+    try:
+        import pytz
+        greek_tz = pytz.timezone('Europe/Athens')
+        greek_time = datetime.now(greek_tz)
+        return greek_time.strftime("%H:%M")
+    except Exception as e:
+        logger.error(f"Error getting Greek time: {e}")
+        return datetime.now().strftime("%H:%M")
