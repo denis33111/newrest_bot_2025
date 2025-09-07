@@ -164,7 +164,12 @@ def download_file(filename):
     try:
         file_path = os.path.join(os.getcwd(), filename)
         if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True)
+            return send_file(
+                file_path, 
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/pdf'
+            )
         else:
             return jsonify({'error': 'File not found'}), 404
     except Exception as e:
