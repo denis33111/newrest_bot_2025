@@ -482,6 +482,9 @@ class WorkingConsole:
                     parse_mode='Markdown'
                 )
                 
+                # Show updated working console with Check Out button
+                await self.show_working_console()
+                
             else:
                 await self._send_error_message()
                 # Restore working console on error
@@ -530,6 +533,9 @@ class WorkingConsole:
                     text=message,
                     parse_mode='Markdown'
                 )
+                
+                # Show updated working console with Check In button
+                await self.show_working_console()
                 
             else:
                 await self._send_error_message()
