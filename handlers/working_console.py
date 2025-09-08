@@ -30,7 +30,7 @@ class WorkingConsole:
                 keyboard, 
                 resize_keyboard=True, 
                 one_time_keyboard=False,
-                persistent=True
+                is_persistent=True
             )
             
             # Create status message
