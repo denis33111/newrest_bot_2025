@@ -30,9 +30,14 @@ class ReminderScheduler:
                 current_time = now.time()
                 target_time = time(10, 0)  # 10:00 AM
                 
-                # If it's 10am, send reminders and wait 24 hours
-                if current_time.hour == target_time.hour and current_time.minute == target_time.minute:
-                    logger.info("It's 10am - sending daily reminders")
+                # If it's 9:50am, send day course reminders
+                if current_time.hour == 9 and current_time.minute == 50:
+                    logger.info("It's 9:50am - sending day course reminders")
+                    await self.reminder_system.send_day_course_reminders()
+                
+                # If it's 10am, send pre-course reminders and wait 24 hours
+                elif current_time.hour == target_time.hour and current_time.minute == target_time.minute:
+                    logger.info("It's 10am - sending pre-course reminders")
                     await self.reminder_system.send_daily_reminders()
                     
                     # Wait 24 hours (minus 1 minute to avoid missing the next day)

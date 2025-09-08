@@ -337,6 +337,206 @@ We wish you all the best in your future endeavors!"""
             logger.error(f"Error getting users for reminder: {e}")
             return []
     
+    async def get_users_for_day_reminder(self, target_date):
+        """Get users who need day course reminders for a specific date"""
+        try:
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return []
+            
+            registration_sheet = sheets_data['sheets']['registration']
+            workers_sheet = sheets_data['sheets']['workers']
+            
+            # Get all data
+            registration_data = registration_sheet.get_all_records()
+            workers_data = workers_sheet.get_all_records()
+            
+            # Create a mapping of user_id to status
+            user_status_map = {}
+            for worker in workers_data:
+                user_status_map[worker.get('ID')] = worker.get('STATUS')
+            
+            # Find users with DAY_COURSE_REMINDER matching target_date and status APPROVED_COURSE_DATE_SET
+            users_to_remind = []
+            for row in registration_data:
+                user_id = row.get('user id')
+                if (row.get('DAY_COURSE_REMINDER') == target_date and 
+                    user_status_map.get(user_id) == 'APPROVED_COURSE_DATE_SET'):
+                    users_to_remind.append({
+                        'user_id': user_id,
+                        'course_date': row.get('COURSE_DATE'),
+                        'language': row.get('LANGUAGE', 'gr')
+                    })
+            
+            logger.info(f"Found {len(users_to_remind)} users for day course reminder on {target_date}")
+            return users_to_remind
+            
+        except Exception as e:
+            logger.error(f"Error getting users for day reminder: {e}")
+            return []
+    
+    async def send_day_course_reminder(self, user_id, course_date, language='gr'):
+        """Send day course reminder with check-in button"""
+        try:
+            bot = Bot(token=self.bot_token)
+            
+            if language == 'en':
+                message = """🎯 Good morning! Today is your training day.
+
+Please check in when you arrive at 9:50-15:00."""
+            else:  # Greek
+                message = """🎯 Καλημέρα! Σήμερα είναι η ημέρα της εκπαίδευσής σας.
+
+Παρακαλούμε κάντε check-in όταν φτάσετε στις 9:50-15:00."""
+            
+            keyboard = [
+                [InlineKeyboardButton("✅ Check-In / Check-In", callback_data=f"day_checkin_{user_id}")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await bot.send_message(
+                chat_id=user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+            logger.info(f"Day course reminder sent to user {user_id} for course on {course_date}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending day course reminder: {e}")
+            return False
+    
+    async def handle_day_checkin(self, user_id, language='gr'):
+        """Handle day course check-in"""
+        try:
+            bot = Bot(token=self.bot_token)
+            
+            if language == 'en':
+                message = """✅ Check-in successful!
+
+Welcome to your training day. You are now in the working console.
+
+You can check in/out as needed throughout the day."""
+            else:  # Greek
+                message = """✅ Check-in επιτυχής!
+
+Καλώς ήρθατε στην ημέρα εκπαίδευσής σας. Είστε τώρα στην κονσόλα εργασίας.
+
+Μπορείτε να κάνετε check-in/out όποτε χρειάζεται κατά τη διάρκεια της ημέρας."""
+            
+            await bot.send_message(
+                chat_id=user_id,
+                text=message,
+                parse_mode='Markdown'
+            )
+            
+            # Save check-in data to monthly sheet
+            await self._save_checkin_data(user_id)
+            
+            # Update status to WORKING
+            await self._update_worker_status(user_id, 'WORKING')
+            
+            # Send working console
+            await self._send_working_console(user_id)
+            
+            logger.info(f"Day check-in completed for user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error handling day check-in: {e}")
+            return False
+    
+    async def _save_checkin_data(self, user_id):
+        """Save check-in data to monthly sheet"""
+        try:
+            from services.google_sheets import get_monthly_sheet
+            from datetime import datetime
+            import pytz
+            
+            # Get current date and time
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            current_date = now.strftime('%Y-%m-%d')
+            current_time = now.strftime('%H:%M')
+            
+            # Get monthly sheet
+            monthly_sheet = get_monthly_sheet()
+            if not monthly_sheet:
+                logger.error("Could not get monthly sheet for check-in data")
+                return False
+            
+            # Get user data from WORKERS sheet
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return False
+            
+            workers_sheet = sheets_data['sheets']['workers']
+            workers_data = workers_sheet.get_all_records()
+            
+            # Find user name
+            user_name = "Unknown"
+            for worker in workers_data:
+                if str(worker.get('ID')) == str(user_id):
+                    user_name = worker.get('NAME', 'Unknown')
+                    break
+            
+            # Find the correct date column
+            all_values = monthly_sheet.get_all_values()
+            if not all_values:
+                logger.error("Monthly sheet is empty")
+                return False
+            
+            header_row = all_values[0]
+            date_column = None
+            
+            for i, header in enumerate(header_row):
+                if header == current_date:
+                    date_column = i + 1  # 1-based indexing
+                    break
+            
+            if not date_column:
+                logger.error(f"Date column not found for {current_date}")
+                return False
+            
+            # Find user row or add new user
+            user_row = None
+            for i, row in enumerate(all_values[1:], start=2):  # Skip header
+                if len(row) > 0 and row[0] == user_name:
+                    user_row = i
+                    break
+            
+            if not user_row:
+                # Add new user row
+                monthly_sheet.append_row([user_name] + [''] * (len(header_row) - 1))
+                user_row = len(all_values) + 1
+            
+            # Update check-in time
+            monthly_sheet.update_cell(user_row, date_column, current_time)
+            
+            logger.info(f"Check-in data saved for user {user_id} at {current_time}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving check-in data: {e}")
+            return False
+    
+    async def _send_working_console(self, user_id):
+        """Send working console to user"""
+        try:
+            from handlers.working_console import WorkingConsole
+            
+            working_console = WorkingConsole(user_id)
+            await working_console.show_working_console()
+            
+            logger.info(f"Working console sent to user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending working console: {e}")
+            return False
+    
     async def send_daily_reminders(self):
         """Send reminders for today's courses (run this at 10am daily)"""
         try:
@@ -363,4 +563,32 @@ We wish you all the best in your future endeavors!"""
             
         except Exception as e:
             logger.error(f"Error sending daily reminders: {e}")
+            return False
+    
+    async def send_day_course_reminders(self):
+        """Send day course reminders at 9:50am for approved users"""
+        try:
+            # Calculate today's date
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            today = now.strftime('%Y-%m-%d')
+            
+            # Get users for today's day course reminders
+            users = await self.get_users_for_day_reminder(today)
+            
+            # Send reminders to each user
+            for user in users:
+                await self.send_day_course_reminder(
+                    user['user_id'], 
+                    user['course_date'], 
+                    user['language']
+                )
+                # Small delay between messages to avoid rate limiting
+                await asyncio.sleep(1)
+            
+            logger.info(f"Sent day course reminders to {len(users)} users for {today}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending day course reminders: {e}")
             return False

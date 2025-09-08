@@ -117,6 +117,9 @@ async def handle_callback_query(callback_query):
         # Handle reminder callbacks
         elif data.startswith('reminder_'):
             await handle_reminder_callback(data)
+        # Handle day check-in callbacks
+        elif data.startswith('day_checkin_'):
+            await handle_day_checkin_callback(data)
         
         # Handle registration callbacks
         elif user_id in active_registrations:
@@ -230,3 +233,28 @@ async def handle_reminder_callback(data):
         
     except Exception as e:
         logger.error(f"Error handling reminder callback: {e}")
+
+async def handle_day_checkin_callback(data):
+    """Handle day check-in callback queries"""
+    try:
+        parts = data.split('_')
+        
+        if len(parts) < 3:
+            logger.error(f"Invalid day check-in callback: {data}")
+            return
+        
+        user_id = parts[2]
+        
+        reminder_system = ReminderSystem()
+        
+        # Get user language from candidate data
+        candidate_data = candidate_data_storage.get(user_id, {})
+        language = candidate_data.get('language', 'gr')
+        
+        # Handle day check-in
+        await reminder_system.handle_day_checkin(user_id, language)
+        
+        logger.info(f"Day check-in callback handled for user {user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error handling day check-in callback: {e}")
