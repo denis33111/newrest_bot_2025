@@ -7,14 +7,36 @@ Handles all Google Sheets operations
 import os
 import logging
 import gspread
+import time
 from datetime import datetime
 from google.oauth2.service_account import Credentials
+from googleapiclient.errors import HttpError
 
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 GOOGLE_SHEETS_ID = os.getenv('GOOGLE_SHEETS_ID')
 GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv('GOOGLE_SERVICE_ACCOUNT_EMAIL')
+
+def retry_on_quota_error(max_retries=3, delay=2):
+    """Decorator to retry on Google Sheets quota errors"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except HttpError as e:
+                    if e.resp.status == 429 and attempt < max_retries - 1:
+                        logger.warning(f"Quota exceeded, retrying in {delay} seconds... (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        raise e
+                except Exception as e:
+                    raise e
+            return None
+        return wrapper
+    return decorator
 
 def init_google_sheets():
     """Initialize Google Sheets connection"""
@@ -222,6 +244,7 @@ def save_worker_data(data):
         return False
 
 # Working status and time tracking functions
+@retry_on_quota_error(max_retries=3, delay=2)
 async def get_user_working_status(user_id):
     """Get user's current working status and today's data"""
     try:
@@ -319,6 +342,7 @@ async def get_user_working_status(user_id):
         logger.error(f"Error getting user working status: {e}")
         return {'checked_in': False, 'error': str(e), 'language': 'gr'}
 
+@retry_on_quota_error(max_retries=3, delay=2)
 async def update_working_status(user_id, checked_in, check_in_time=None, check_out_time=None, work_hours=None, location=None):
     """Update user's working status in Google Sheets"""
     try:

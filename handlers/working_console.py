@@ -170,16 +170,9 @@ class WorkingConsole:
             is_persistent=True
         )
         
-        message = f"""🟢 **{get_text(language, 'check_in_required')}**
+        message = f"""📍 **{get_text(language, 'check_in_required')}**
 
-{get_text(language, 'share_location_instructions')}
-
-**{get_text(language, 'how_to_share_location')}**
-1. {get_text(language, 'tap_share_location')}
-2. {get_text(language, 'allow_location_access')}
-3. {get_text(language, 'select_send_location')}
-
-**{get_text(language, 'location_note')}**"""
+{get_text(language, 'tap_share_location')}"""
         
         await self.bot.send_message(
             chat_id=self.user_id,
@@ -200,16 +193,9 @@ class WorkingConsole:
             is_persistent=True
         )
         
-        message = f"""🔚 **{get_text(language, 'check_out_required')}**
+        message = f"""📍 **{get_text(language, 'check_out_required')}**
 
-{get_text(language, 'share_location_instructions')}
-
-**{get_text(language, 'how_to_share_location')}**
-1. {get_text(language, 'tap_share_location')}
-2. {get_text(language, 'allow_location_access')}
-3. {get_text(language, 'select_send_location')}
-
-**{get_text(language, 'location_note')}**"""
+{get_text(language, 'tap_share_location')}"""
         
         await self.bot.send_message(
             chat_id=self.user_id,
