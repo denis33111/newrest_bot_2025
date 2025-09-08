@@ -351,7 +351,7 @@ We wish you all the best in your future endeavors!"""
             
             # Find users with PRE_COURSE_REMINDER matching target_date
             # AND who haven't been sent a reminder yet
-            # AND who have valid status (not REJECTED)
+            # Skip status check - if they're in REGISTRATION sheet, they should get reminders
             users_to_remind = []
             for i in range(1, len(user_id_col)):  # Skip header row
                 if (i < len(pre_course_reminder_col) and 
@@ -364,15 +364,14 @@ We wish you all the best in your future endeavors!"""
                     first_reminder_sent = first_reminder_sent_col[i]
                     course_date = course_date_col[i]
                     language = language_col[i]
-                    user_status = user_status_map.get(user_id)
                     
                     # Convert string date to date object for comparison
                     pre_course_reminder_str = str(pre_course_reminder) if pre_course_reminder else ""
                     target_date_str = str(target_date)
                     
+                    # Simple check: if PRE_COURSE_REMINDER matches and no reminder sent yet
                     if (pre_course_reminder_str == target_date_str and
-                        not first_reminder_sent and
-                        (user_status is None or user_status not in ['REJECTED', 'CANCELLED'])):
+                        not first_reminder_sent):
                         users_to_remind.append({
                             'user_id': user_id,
                             'course_date': course_date,
