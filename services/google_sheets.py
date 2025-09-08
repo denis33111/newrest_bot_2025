@@ -20,7 +20,28 @@ GOOGLE_SHEETS_ID = os.getenv('GOOGLE_SHEETS_ID')
 GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv('GOOGLE_SERVICE_ACCOUNT_EMAIL')
 
 def retry_on_quota_error(max_retries=3, delay=2):
-    """Decorator to retry on Google Sheets quota errors"""
+    """Decorator to retry on Google Sheets quota errors for sync functions"""
+    def decorator(func):
+        def sync_wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except HttpError as e:
+                    if e.resp.status == 429 and attempt < max_retries - 1:
+                        logger.warning(f"Quota exceeded, retrying in {delay} seconds... (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        raise e
+                except Exception as e:
+                    raise e
+            return None
+        
+        return sync_wrapper
+    return decorator
+
+def retry_on_quota_error_async(max_retries=3, delay=2):
+    """Decorator to retry on Google Sheets quota errors for async functions"""
     def decorator(func):
         async def async_wrapper(*args, **kwargs):
             for attempt in range(max_retries):
@@ -37,25 +58,7 @@ def retry_on_quota_error(max_retries=3, delay=2):
                     raise e
             return None
         
-        def sync_wrapper(*args, **kwargs):
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except HttpError as e:
-                    if e.resp.status == 429 and attempt < max_retries - 1:
-                        logger.warning(f"Quota exceeded, retrying in {delay} seconds... (attempt {attempt + 1}/{max_retries})")
-                        time.sleep(delay)
-                        continue
-                    else:
-                        raise e
-                except Exception as e:
-                    raise e
-            return None
-        
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        else:
-            return sync_wrapper
+        return async_wrapper
     return decorator
 
 @retry_on_quota_error(max_retries=3, delay=2)
@@ -265,7 +268,7 @@ def save_worker_data(data):
         return False
 
 # Working status and time tracking functions
-@retry_on_quota_error(max_retries=3, delay=2)
+@retry_on_quota_error_async(max_retries=3, delay=2)
 async def get_user_working_status(user_id):
     """Get user's current working status and today's data"""
     try:
@@ -378,7 +381,7 @@ async def get_user_working_status(user_id):
         logger.error(f"Error getting user working status: {e}")
         return {'checked_in': False, 'error': str(e), 'language': 'gr'}
 
-@retry_on_quota_error(max_retries=3, delay=2)
+@retry_on_quota_error_async(max_retries=3, delay=2)
 async def update_working_status(user_id, checked_in, check_in_time=None, check_out_time=None, work_hours=None, location=None):
     """Update user's working status in Google Sheets"""
     try:
