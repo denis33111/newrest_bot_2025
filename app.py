@@ -103,6 +103,31 @@ def test_sheets():
         return jsonify({'status': 'error', 'error': str(e)})
 
 # Complete system test
+@app.route('/test/pdf', methods=['GET'])
+def test_pdf():
+    """Test PDF file availability"""
+    try:
+        filename = 'ΥΠ_ΔΗΛΩΣΗ_ΠΟΙΝΙΚΟΥ (2).pdf'
+        file_path = os.path.join(os.getcwd(), filename)
+        
+        result = {
+            'filename': filename,
+            'file_path': file_path,
+            'file_exists': os.path.exists(file_path),
+            'current_directory': os.getcwd(),
+            'all_pdf_files': [f for f in os.listdir(os.getcwd()) if f.endswith('.pdf')]
+        }
+        
+        if os.path.exists(file_path):
+            result['file_size'] = os.path.getsize(file_path)
+            result['status'] = 'success'
+        else:
+            result['status'] = 'file_not_found'
+            
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/test/all', methods=['GET'])
 def test_all():
     """Test all connections"""
