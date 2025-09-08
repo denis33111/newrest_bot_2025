@@ -12,6 +12,9 @@ from services.google_sheets import init_google_sheets, get_monthly_sheet
 
 logger = logging.getLogger(__name__)
 
+# Import admin_evaluation_instances from message_handler
+# This will be set by the message handler when it imports this module
+
 class AdminEvaluation:
     def __init__(self, user_id, candidate_data):
         self.user_id = user_id
@@ -20,6 +23,7 @@ class AdminEvaluation:
         self.admin_group_id = os.getenv('ADMIN_GROUP_ID')
         self.evaluation_data = {}
         self.selected_position = None
+        self.waiting_for_custom_date = False
         
     async def notify_admin_group(self):
         """Send notification to admin group about new registration"""
@@ -461,4 +465,81 @@ Thank you for your interest and we wish you all the best!"""
             
         except Exception as e:
             logger.error(f"Error notifying admin: {e}")
+            return False
+    
+    async def ask_custom_date(self):
+        """Ask admin to input custom date"""
+        try:
+            bot = Bot(token=self.bot_token)
+            
+            message = f"""📝 **Προσαρμοσμένη Ημερομηνία**
+
+Εισάγετε την ημερομηνία που θέλετε για το μάθημα.
+
+**Μορφή:** YYYY-MM-DD
+**Παράδειγμα:** 2025-09-25
+
+**Θέση:** {self.selected_position}
+
+Παρακαλώ στείλτε την ημερομηνία ως μήνυμα κειμένου."""
+            
+            await bot.send_message(
+                chat_id=self.admin_group_id,
+                text=message,
+                parse_mode='Markdown'
+            )
+            
+            # Set flag to expect custom date input
+            self.waiting_for_custom_date = True
+            
+            logger.info(f"Custom date input requested for user {self.user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error asking for custom date: {e}")
+            return False
+    
+    async def handle_custom_date_input(self, date_text, admin_evaluation_instances):
+        """Handle custom date input from admin"""
+        try:
+            from datetime import datetime
+            import pytz
+            
+            # Validate date format
+            try:
+                course_date = datetime.strptime(date_text, '%Y-%m-%d').strftime('%Y-%m-%d')
+            except ValueError:
+                bot = Bot(token=self.bot_token)
+                await bot.send_message(
+                    chat_id=self.admin_group_id,
+                    text="❌ **Λάθος μορφή ημερομηνίας**\n\nΠαρακαλώ χρησιμοποιήστε τη μορφή YYYY-MM-DD\n**Παράδειγμα:** 2025-09-25"
+                )
+                return False
+            
+            # Check if date is in the future
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            input_date = datetime.strptime(course_date, '%Y-%m-%d')
+            
+            if input_date.date() <= now.date():
+                bot = Bot(token=self.bot_token)
+                await bot.send_message(
+                    chat_id=self.admin_group_id,
+                    text="❌ **Η ημερομηνία πρέπει να είναι στο μέλλον**\n\nΠαρακαλώ επιλέξτε μια ημερομηνία μετά από σήμερα."
+                )
+                return False
+            
+            # Save evaluation with custom date
+            await self.save_evaluation(self.selected_position, course_date, approved=True)
+            
+            # Clean up
+            self.waiting_for_custom_date = False
+            if self.user_id in admin_evaluation_instances:
+                del admin_evaluation_instances[self.user_id]
+            
+            logger.info(f"Custom date {course_date} processed for user {self.user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error handling custom date input: {e}")
             return False

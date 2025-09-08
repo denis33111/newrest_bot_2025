@@ -37,6 +37,13 @@ async def handle_telegram_message(message):
             await handle_reminder_test_command(text, user_id)
             return
         
+        # Handle custom date input from admin
+        if user_id in admin_evaluation_instances:
+            admin_eval = admin_evaluation_instances[user_id]
+            if admin_eval.waiting_for_custom_date:
+                await admin_eval.handle_custom_date_input(text, admin_evaluation_instances)
+                return
+        
         # Check if user is in active registration
         if user_id in active_registrations:
             await handle_registration_message(user_id, text)
@@ -210,8 +217,18 @@ async def handle_admin_evaluation_callback(data):
             if user_id in admin_evaluation_instances:
                 del admin_evaluation_instances[user_id]
         elif action == 'custom':
-            # Handle custom date input (would need additional implementation)
+            # Handle custom date input
             logger.info(f"Custom date requested for user {user_id}")
+            
+            # Get admin evaluation instance
+            if user_id not in admin_evaluation_instances:
+                logger.error(f"Admin evaluation instance not found for user {user_id}")
+                return
+            
+            admin_eval = admin_evaluation_instances[user_id]
+            
+            # Ask for custom date input
+            await admin_eval.ask_custom_date()
         
         
     except Exception as e:
