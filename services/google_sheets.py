@@ -68,7 +68,12 @@ def get_monthly_sheet(sheet_name):
         if sheets_data['status'] != 'success':
             return None
         
-        return sheets_data['spreadsheet'].worksheet(sheet_name)
+        try:
+            return sheets_data['spreadsheet'].worksheet(sheet_name)
+        except:
+            # Sheet doesn't exist, create it
+            logger.info(f"Creating new monthly sheet: {sheet_name}")
+            return create_monthly_sheet(sheets_data['spreadsheet'], sheet_name)
     except Exception as e:
         logger.error(f"Error getting monthly sheet {sheet_name}: {e}")
         return None
@@ -222,7 +227,7 @@ async def get_user_working_status(user_id):
     try:
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
-            return {'checked_in': False, 'error': 'Sheets connection failed'}
+            return {'checked_in': False, 'error': 'Sheets connection failed', 'language': 'gr'}
         
         # Get current date for today's tracking
         today = datetime.now().strftime("%m/%d/%Y")
@@ -232,26 +237,26 @@ async def get_user_working_status(user_id):
         workers_data = workers_sheet.get_all_values()
         
         user_name = None
+        user_language = 'gr'  # Default to Greek
         for row in workers_data[1:]:  # Skip header row
             if len(row) >= 2 and str(user_id) == str(row[1]):  # Check ID column
                 user_name = row[0]  # Get name from column A
+                if len(row) >= 4:  # Check if language column exists
+                    user_language = row[3]  # Get language from column D
                 break
         
         if not user_name:
-            return {'checked_in': False, 'error': 'User not found in workers sheet'}
+            return {'checked_in': False, 'error': 'User not found in workers sheet', 'language': user_language}
         
         # Get current month sheet
         current_month_sheet_name = get_current_month_sheet()
         if not current_month_sheet_name:
-            return {'checked_in': False, 'error': 'Could not determine current month'}
+            return {'checked_in': False, 'error': 'Could not determine current month', 'language': user_language}
         
         # Check if current month sheet exists, create if not
         monthly_sheet = get_monthly_sheet(current_month_sheet_name)
         if not monthly_sheet:
-            # Create new monthly sheet
-            monthly_sheet = create_monthly_sheet(sheets_data['spreadsheet'], current_month_sheet_name)
-            if not monthly_sheet:
-                return {'checked_in': False, 'error': 'Could not create monthly sheet'}
+            return {'checked_in': False, 'error': 'Could not access or create monthly sheet', 'language': user_language}
         
         monthly_data = monthly_sheet.get_all_values()
         
@@ -266,18 +271,18 @@ async def get_user_working_status(user_id):
             # Create new row for user
             user_row = create_user_row_in_monthly_sheet(monthly_sheet, user_name)
             if not user_row:
-                return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
+                return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m', 'language': user_language}
         
         # Get today's data from monthly sheet
         today_column = get_today_column()
         if today_column is None:
-            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
+            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m', 'language': user_language}
         
         # Get today's attendance data
         today_data = monthly_sheet.cell(user_row, today_column).value
         
         if not today_data:
-            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m'}
+            return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m', 'language': user_language}
         
         # Parse today's data to determine status
         if '-' in today_data and not today_data.endswith('-'):
@@ -287,7 +292,8 @@ async def get_user_working_status(user_id):
                 'user_name': user_name,
                 'today_hours': calculate_hours_from_data(today_data),
                 'check_in_time': today_data.split('-')[0].strip(),
-                'check_out_time': today_data.split('-')[1].strip()
+                'check_out_time': today_data.split('-')[1].strip(),
+                'language': user_language
             }
         elif today_data.endswith('-'):
             # Only check-in time (checked in)
@@ -296,7 +302,8 @@ async def get_user_working_status(user_id):
                 'checked_in': True,
                 'user_name': user_name,
                 'today_hours': '0h 0m',
-                'check_in_time': check_in_time
+                'check_in_time': check_in_time,
+                'language': user_language
             }
         else:
             # Only check-in time without dash
@@ -304,12 +311,13 @@ async def get_user_working_status(user_id):
                 'checked_in': True,
                 'user_name': user_name,
                 'today_hours': '0h 0m',
-                'check_in_time': today_data
+                'check_in_time': today_data,
+                'language': user_language
             }
             
     except Exception as e:
         logger.error(f"Error getting user working status: {e}")
-        return {'checked_in': False, 'error': str(e)}
+        return {'checked_in': False, 'error': str(e), 'language': 'gr'}
 
 async def update_working_status(user_id, checked_in, check_in_time=None, check_out_time=None, work_hours=None, location=None):
     """Update user's working status in Google Sheets"""
@@ -347,11 +355,8 @@ async def update_working_status(user_id, checked_in, check_in_time=None, check_o
         # Check if current month sheet exists, create if not
         monthly_sheet = get_monthly_sheet(current_month_sheet_name)
         if not monthly_sheet:
-            # Create new monthly sheet
-            monthly_sheet = create_monthly_sheet(sheets_data['spreadsheet'], current_month_sheet_name)
-            if not monthly_sheet:
-                logger.error("Could not create monthly sheet")
-                return False
+            logger.error("Could not access or create monthly sheet")
+            return False
         
         monthly_data = monthly_sheet.get_all_values()
         

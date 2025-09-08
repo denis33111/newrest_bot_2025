@@ -10,6 +10,7 @@ from datetime import datetime
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from services.google_sheets import get_user_working_status, update_working_status
 from services.location_service import validate_work_location
+from handlers.language_system import get_text, get_buttons
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,11 @@ class WorkingConsole:
             # Get current working status
             status = await get_user_working_status(self.user_id)
             
+            # Get user language from status
+            user_language = status.get('language', 'gr')
+            
             # Create permanent keyboard
-            keyboard = self._create_working_keyboard(status)
+            keyboard = self._create_working_keyboard(status, user_language)
             reply_markup = ReplyKeyboardMarkup(
                 keyboard, 
                 resize_keyboard=True, 
@@ -34,7 +38,7 @@ class WorkingConsole:
             )
             
             # Create status message
-            message = self._create_status_message(status)
+            message = self._create_status_message(status, user_language)
             
             await self.bot.send_message(
                 chat_id=self.user_id,
@@ -47,65 +51,70 @@ class WorkingConsole:
             logger.error(f"Error showing working console: {e}")
             await self._send_error_message()
     
-    def _create_working_keyboard(self, status):
+    def _create_working_keyboard(self, status, language):
         """Create permanent working console keyboard"""
         keyboard = []
         
         # Check In/Out button based on status
         if status.get('checked_in', False):
-            check_button = KeyboardButton("🔚 Check Out")
+            check_button_text = f"🔚 {get_text(language, 'check_out')}"
         else:
-            check_button = KeyboardButton("🟢 Check In")
+            check_button_text = f"🟢 {get_text(language, 'check_in')}"
+        
+        check_button = KeyboardButton(check_button_text)
         
         # Contact button
-        contact_button = KeyboardButton("📞 Contact")
+        contact_button_text = f"📞 {get_text(language, 'contact')}"
+        contact_button = KeyboardButton(contact_button_text)
         
         # Add buttons to keyboard
         keyboard.append([check_button, contact_button])
         
         return keyboard
     
-    def _create_status_message(self, status):
+    def _create_status_message(self, status, language):
         """Create status message based on current state"""
         if status.get('checked_in', False):
             # User is checked in
             check_in_time = status.get('check_in_time', 'Unknown')
-            today_hours = status.get('today_hours', '0h 0m')
             
-            message = f"""🚀 **Working Console**
+            message = f"""🚀 **{get_text(language, 'working_console')}**
 
-**Status:** ✅ Checked In
-**Check-in Time:** {check_in_time}
-**Today's Hours:** {today_hours}
-**Location:** Verified ✅
+**{get_text(language, 'status_checked_in')}**
+**{get_text(language, 'check_in_time')}** {check_in_time}
+**{get_text(language, 'location_verified')}**
 
-Use the buttons below to manage your work session."""
+{get_text(language, 'use_buttons_below')}"""
         else:
             # User is not checked in
-            message = f"""🚀 **Working Console**
+            message = f"""🚀 **{get_text(language, 'working_console')}**
 
-**Status:** ⏸️ Not Checked In
-**Today's Hours:** 0h 0m
+**{get_text(language, 'status_not_checked_in')}**
 
-Ready to start your work session! Use the buttons below."""
+{get_text(language, 'ready_to_start')}"""
         
         return message
     
     async def handle_check_in_out(self, message_text):
         """Handle check in/out button press"""
         try:
-            if "Check In" in message_text:
-                await self._handle_check_in()
-            elif "Check Out" in message_text:
-                await self._handle_check_out()
+            # Get user language first
+            status = await get_user_working_status(self.user_id)
+            user_language = status.get('language', 'gr')
+            
+            # Check for localized button text
+            if get_text(user_language, 'check_in') in message_text or "Check In" in message_text:
+                await self._handle_check_in(user_language)
+            elif get_text(user_language, 'check_out') in message_text or "Check Out" in message_text:
+                await self._handle_check_out(user_language)
             else:
-                await self._send_error_message()
+                await self._send_error_message(user_language)
                 
         except Exception as e:
             logger.error(f"Error handling check in/out: {e}")
-            await self._send_error_message()
+            await self._send_error_message('gr')
     
-    async def _handle_check_in(self):
+    async def _handle_check_in(self, language):
         """Handle check in process"""
         try:
             # Check if already checked in
@@ -113,19 +122,19 @@ Ready to start your work session! Use the buttons below."""
             if status.get('checked_in', False):
                 await self.bot.send_message(
                     chat_id=self.user_id,
-                    text="✅ **Already Checked In**\n\nYou're already checked in and working.\n\nUse 'Check Out' when you finish your work session.",
+                    text=f"✅ **{get_text(language, 'already_checked_in')}**\n\n{get_text(language, 'already_checked_in_message')}\n\n{get_text(language, 'use_check_out')}",
                     parse_mode='Markdown'
                 )
                 return
             
             # Request location for check in
-            await self._request_location_for_check_in()
+            await self._request_location_for_check_in(language)
             
         except Exception as e:
             logger.error(f"Error in check in process: {e}")
-            await self._send_error_message()
+            await self._send_error_message(language)
     
-    async def _handle_check_out(self):
+    async def _handle_check_out(self, language):
         """Handle check out process"""
         try:
             # Check if checked in
@@ -133,19 +142,19 @@ Ready to start your work session! Use the buttons below."""
             if not status.get('checked_in', False):
                 await self.bot.send_message(
                     chat_id=self.user_id,
-                    text="ℹ️ **Not Checked In**\n\nYou need to check in first before you can check out.\n\nUse 'Check In' to start your work session.",
+                    text=f"ℹ️ **{get_text(language, 'not_checked_in')}**\n\n{get_text(language, 'not_checked_in_message')}\n\n{get_text(language, 'use_check_in')}",
                     parse_mode='Markdown'
                 )
                 return
             
             # Request location for check out
-            await self._request_location_for_check_out()
+            await self._request_location_for_check_out(language)
             
         except Exception as e:
             logger.error(f"Error in check out process: {e}")
-            await self._send_error_message()
+            await self._send_error_message(language)
     
-    async def _request_location_for_check_in(self):
+    async def _request_location_for_check_in(self, language):
         """Request location for check in"""
         keyboard = [
             [KeyboardButton("📍 Share Location", request_location=True)]
@@ -156,16 +165,16 @@ Ready to start your work session! Use the buttons below."""
             one_time_keyboard=True
         )
         
-        message = """🟢 **Check In - Location Required**
+        message = f"""🟢 **{get_text(language, 'check_in_required')}**
 
-To check in, please share your current location.
+{get_text(language, 'share_location_instructions')}
 
-**How to share location:**
-1. Tap 'Share Location' below
-2. Allow location access when prompted
-3. Select 'Send Location'
+**{get_text(language, 'how_to_share_location')}**
+1. {get_text(language, 'tap_share_location')}
+2. {get_text(language, 'allow_location_access')}
+3. {get_text(language, 'select_send_location')}
 
-**Note:** You must be within 500m of the work location to check in successfully."""
+**{get_text(language, 'location_note')}**"""
         
         await self.bot.send_message(
             chat_id=self.user_id,
@@ -206,8 +215,11 @@ To check out, please share your current location.
     async def handle_location(self, location):
         """Handle location sharing for check in/out"""
         try:
+            logger.info(f"Handling location: {location}")
+            
             # Validate location
-            is_valid = await validate_work_location(location)
+            is_valid = validate_work_location(location)
+            logger.info(f"Location validation result: {is_valid}")
             
             if not is_valid:
                 await self.bot.send_message(
@@ -220,7 +232,9 @@ To check out, please share your current location.
                 return
             
             # Process check in/out based on current status
+            logger.info(f"Getting working status for user {self.user_id}")
             status = await get_user_working_status(self.user_id)
+            logger.info(f"Working status: {status}")
             
             if status.get('checked_in', False):
                 # Check out
@@ -341,13 +355,17 @@ Great work today!"""
     
     async def handle_contact(self):
         """Handle contact button press"""
-        message = """📞 **Contact**
+        # Get user language first
+        status = await get_user_working_status(self.user_id)
+        user_language = status.get('language', 'gr')
+        
+        message = f"""📞 **{get_text(user_language, 'contact')}**
 
-**Crew Assistant:** Coming Soon!
+**{get_text(user_language, 'contact_message')}**
 
-This feature will connect you directly with the crew assistant for any questions or support.
+{get_text(user_language, 'contact_description')}
 
-**For now, please contact your supervisor directly.**"""
+**{get_text(user_language, 'contact_for_now')}**"""
         
         await self.bot.send_message(
             chat_id=self.user_id,
@@ -355,18 +373,19 @@ This feature will connect you directly with the crew assistant for any questions
             parse_mode='Markdown'
         )
     
-    async def _send_error_message(self):
+    
+    async def _send_error_message(self, language='gr'):
         """Send error message"""
-        message = """❌ **Something went wrong**
+        message = f"""❌ **{get_text(language, 'something_went_wrong')}**
 
-Sorry, there was an error processing your request.
+{get_text(language, 'error_message')}
 
-**Please try:**
-• Check your internet connection
-• Try again in a moment
-• Contact support if the problem continues
+**{get_text(language, 'please_try')}**
+• {get_text(language, 'check_internet')}
+• {get_text(language, 'try_again')}
+• {get_text(language, 'contact_support')}
 
-*We're working to fix this issue.*"""
+*{get_text(language, 'working_on_fix')}*"""
         
         await self.bot.send_message(
             chat_id=self.user_id,

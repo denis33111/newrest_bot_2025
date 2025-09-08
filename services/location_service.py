@@ -22,15 +22,29 @@ def validate_work_location(location):
     Validate if user location is within work area
     
     Args:
-        location: Telegram location object with latitude and longitude
+        location: Telegram location object or dict with latitude and longitude
         
     Returns:
         bool: True if location is valid, False otherwise
     """
     try:
-        # Extract coordinates
-        user_lat = location.latitude
-        user_lon = location.longitude
+        # Extract coordinates - handle both object and dict
+        if hasattr(location, 'latitude'):
+            # Telegram object
+            user_lat = location.latitude
+            user_lon = location.longitude
+        elif isinstance(location, dict):
+            # Dict object
+            user_lat = location.get('latitude')
+            user_lon = location.get('longitude')
+        else:
+            logger.error(f"Invalid location object type: {type(location)}")
+            return False
+        
+        # Validate coordinates
+        if user_lat is None or user_lon is None:
+            logger.error("Missing latitude or longitude in location data")
+            return False
         
         # Calculate distance from work location
         distance = calculate_distance(
