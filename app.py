@@ -34,11 +34,12 @@ bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    import time
     return jsonify({
         'status': 'healthy',
         'service': 'NewRest Bot 2025',
         'version': '1.0.0',
-        'timestamp': asyncio.get_event_loop().time()
+        'timestamp': time.time()
     })
 
 # Telegram bot test endpoint
