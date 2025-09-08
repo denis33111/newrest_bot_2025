@@ -30,13 +30,16 @@ class ReminderScheduler:
                 current_time = now.time()
                 target_time = time(10, 0)  # 10:00 AM
                 
-                # If it's 10am, send reminders
+                # If it's 10am, send reminders and wait 24 hours
                 if current_time.hour == target_time.hour and current_time.minute == target_time.minute:
                     logger.info("It's 10am - sending daily reminders")
                     await self.reminder_system.send_daily_reminders()
-                
-                # Wait 1 minute before checking again
-                await asyncio.sleep(60)
+                    
+                    # Wait 24 hours (minus 1 minute to avoid missing the next day)
+                    await asyncio.sleep(24 * 60 * 60 - 60)
+                else:
+                    # Wait 1 minute before checking again
+                    await asyncio.sleep(60)
                 
             except Exception as e:
                 logger.error(f"Error in reminder scheduler: {e}")

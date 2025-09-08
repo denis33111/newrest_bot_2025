@@ -320,10 +320,10 @@ We wish you all the best in your future endeavors!"""
             # Get all data
             all_data = registration_sheet.get_all_records()
             
-            # Find users with course date matching target_date
+            # Find users with PRE_COURSE_REMINDER matching target_date
             users_to_remind = []
             for row in all_data:
-                if row.get('COURSE_DATE') == target_date:
+                if row.get('PRE_COURSE_REMINDER') == target_date:
                     users_to_remind.append({
                         'user_id': row.get('user id'),
                         'course_date': row.get('COURSE_DATE'),
@@ -338,15 +338,15 @@ We wish you all the best in your future endeavors!"""
             return []
     
     async def send_daily_reminders(self):
-        """Send reminders for tomorrow's courses (run this at 10am daily)"""
+        """Send reminders for today's courses (run this at 10am daily)"""
         try:
-            # Calculate tomorrow's date
+            # Calculate today's date
             greece_tz = pytz.timezone('Europe/Athens')
             now = datetime.now(greece_tz)
-            tomorrow = (now + timedelta(days=1)).strftime('%Y-%m-%d')
+            today = now.strftime('%Y-%m-%d')
             
-            # Get users for tomorrow's courses
-            users = await self.get_users_for_reminder(tomorrow)
+            # Get users for today's courses (PRE_COURSE_REMINDER = today)
+            users = await self.get_users_for_reminder(today)
             
             # Send reminders to each user
             for user in users:
@@ -358,7 +358,7 @@ We wish you all the best in your future endeavors!"""
                 # Small delay between messages to avoid rate limiting
                 await asyncio.sleep(1)
             
-            logger.info(f"Sent reminders to {len(users)} users for {tomorrow}")
+            logger.info(f"Sent reminders to {len(users)} users for {today}")
             return True
             
         except Exception as e:
