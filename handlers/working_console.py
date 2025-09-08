@@ -214,9 +214,24 @@ class WorkingConsole:
             logger.info(f"Location validation result: {is_valid}")
             
             if not is_valid:
+                # Get user language for localized error message
+                status = await get_user_working_status(self.user_id)
+                language = status.get('language', 'gr')
+                
+                error_message = f"""❌ **{get_text(language, 'location_not_valid')}**
+
+{get_text(language, 'location_validation_message')}
+
+**{get_text(language, 'location_validation_instructions')}**
+• {get_text(language, 'make_sure_at_work')}
+• {get_text(language, 'check_gps_signal')}
+• {get_text(language, 'try_again')}
+
+{get_text(language, 'location_verification_note')}"""
+                
                 await self.bot.send_message(
                     chat_id=self.user_id,
-                    text="📍 **Location Not Valid**\n\nYou need to be within 500m of the work location to check in/out.\n\n**Please:**\n• Make sure you're at the work location\n• Check your GPS signal\n• Try sharing location again\n\n*Location verification ensures accurate attendance tracking.*",
+                    text=error_message,
                     parse_mode='Markdown'
                 )
                 # Show working console again
@@ -238,6 +253,8 @@ class WorkingConsole:
         except Exception as e:
             logger.error(f"Error handling location: {e}")
             await self._send_error_message()
+            # Restore working console on error
+            await self.show_working_console()
     
     async def _process_check_in(self, location):
         """Process successful check in"""
@@ -272,10 +289,14 @@ Your work session has started!"""
                 await self.show_working_console()
             else:
                 await self._send_error_message()
+                # Restore working console on error
+                await self.show_working_console()
                 
         except Exception as e:
             logger.error(f"Error processing check in: {e}")
             await self._send_error_message()
+            # Restore working console on error
+            await self.show_working_console()
     
     async def _process_check_out(self, location):
         """Process successful check out"""
@@ -319,10 +340,14 @@ Great work today!"""
                 await self.show_working_console()
             else:
                 await self._send_error_message()
+                # Restore working console on error
+                await self.show_working_console()
                 
         except Exception as e:
             logger.error(f"Error processing check out: {e}")
             await self._send_error_message()
+            # Restore working console on error
+            await self.show_working_console()
     
     def _calculate_work_hours(self, check_in_time, check_out_time):
         """Calculate work hours between check in and out"""
