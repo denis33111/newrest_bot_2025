@@ -85,8 +85,13 @@ async def handle_telegram_message(message):
             # User was rejected - show service unavailable
             await send_rejection_message(user_id)
         elif user_status in ['COURSE_DATE_SET', 'APPROVED_COURSE_DATE_SET']:
-            # User in transition - show waiting message
-            await send_waiting_message(user_id, user_status)
+            # User in transition - check if they want to trigger reminder
+            if text and text.lower() in ['reminder', 'test', 'start', 'begin', 'yes', 'go']:
+                # User wants to trigger reminder flow - bypass waiting
+                await trigger_reminder_flow(user_id, user_status)
+            else:
+                # Show waiting message with option to trigger reminder
+                await send_waiting_message_with_reminder_option(user_id, user_status)
         elif user_status == 'OFF':
             # Disabled user - no response
             logger.info(f"Disabled user {user_id} - ignoring message")
@@ -590,3 +595,124 @@ async def handle_reminder_help_command(message):
     except Exception as e:
         logger.error(f"Error in reminder help command: {e}")
         await bot.send_message(chat_id=chat_id, text=f"❌ Error: {str(e)}")
+
+async def trigger_reminder_flow(user_id, user_status):
+    """Trigger reminder flow for testing - bypass waiting state"""
+    try:
+        from telegram import Bot
+        from handlers.reminder_system import ReminderSystem
+        from services.google_sheets import init_google_sheets
+        from datetime import datetime, timedelta
+        import pytz
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        
+        # Get user's course details
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            await send_unknown_status_message(user_id)
+            return
+        
+        registration_sheet = sheets_data['sheets']['registration']
+        
+        # Read user's course date and pre-course reminder date
+        user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+        course_date_col = registration_sheet.col_values(18)  # Column R (COURSE_DATE)
+        pre_course_reminder_col = registration_sheet.col_values(19)  # Column S (PRE_COURSE_REMINDER)
+        language_col = registration_sheet.col_values(4)  # Column D (LANGUAGE)
+        
+        # Find user's details
+        course_date = None
+        pre_course_reminder = None
+        language = 'gr'
+        
+        for i in range(1, len(user_id_col)):  # Skip header row
+            if str(user_id_col[i]) == str(user_id):
+                if i < len(course_date_col):
+                    course_date = course_date_col[i]
+                if i < len(pre_course_reminder_col):
+                    pre_course_reminder = pre_course_reminder_col[i]
+                if i < len(language_col):
+                    language = language_col[i] or 'gr'
+                break
+        
+        if not course_date:
+            await bot.send_message(chat_id=user_id, text="❌ Could not find your course details. Please contact support.")
+            return
+        
+        # Check if user should get pre-day reminder or day-course reminder
+        greece_tz = pytz.timezone('Europe/Athens')
+        now = datetime.now(greece_tz)
+        today = now.strftime('%Y-%m-%d')
+        tomorrow = (now + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        reminder_system = ReminderSystem()
+        
+        # Check if user should get pre-day reminder (tomorrow's course)
+        if pre_course_reminder == tomorrow:
+            await bot.send_message(chat_id=user_id, text="🔄 Triggering pre-day reminder for testing...")
+            await reminder_system.send_pre_course_reminder(user_id, course_date, language)
+        # Check if user should get day-course reminder (today's course)
+        elif course_date == today:
+            await bot.send_message(chat_id=user_id, text="🔄 Triggering day-course reminder for testing...")
+            await reminder_system.send_day_course_reminder(user_id, course_date, language)
+        else:
+            await bot.send_message(chat_id=user_id, text=f"⏰ Your course is on {course_date}. Reminders will be sent automatically at the right time.")
+        
+    except Exception as e:
+        logger.error(f"Error triggering reminder flow: {e}")
+        await send_error_message(user_id)
+
+async def send_waiting_message_with_reminder_option(user_id, status):
+    """Send waiting message with option to trigger reminder for testing"""
+    try:
+        from telegram import Bot
+        from services.google_sheets import init_google_sheets
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        
+        # Get course details from REGISTRATION sheet
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            await send_unknown_status_message(user_id)
+            return
+        
+        registration_sheet = sheets_data['sheets']['registration']
+        
+        # Read only specific columns to avoid duplicate header issues
+        user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+        course_date_col = registration_sheet.col_values(18)  # Column R (COURSE_DATE)
+        
+        # Find user's course details
+        course_date = "Unknown"
+        position = "Unknown"  # Position not available in registration sheet
+        
+        for i in range(1, len(user_id_col)):  # Skip header row
+            if str(user_id_col[i]) == str(user_id):
+                if i < len(course_date_col):
+                    course_date = course_date_col[i] or 'Unknown'
+                break
+        
+        message = f"""⏳ We are waiting for you!
+
+Your course is scheduled for:
+📅 Date: {course_date}
+🕘 Time: 9:50-15:00
+💼 Position: {position}
+
+Please wait for further instructions.
+
+**For Testing:** Type 'reminder' to trigger reminder flow now."""
+        
+        await bot.send_message(
+            chat_id=user_id,
+            text=message,
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"Waiting message with reminder option sent to user {user_id} with status {status}")
+        
+    except Exception as e:
+        logger.error(f"Error sending waiting message with reminder option: {e}")
