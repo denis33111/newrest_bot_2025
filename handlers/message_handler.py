@@ -251,6 +251,7 @@ async def handle_reminder_test_command(text, user_id, message):
         from handlers.reminder_system import ReminderSystem
         from telegram import Bot
         import os
+        import asyncio
         
         # Check if message is from admin group or if user is admin
         admin_group_id = os.getenv('ADMIN_GROUP_ID')
@@ -354,6 +355,67 @@ async def handle_reminder_test_command(text, user_id, message):
             
             await bot.send_message(chat_id=chat_id, text=status_text)
             
+        elif text == '/test_simulate_tomorrow':
+            # Simulate tomorrow's date for testing first reminders
+            await bot.send_message(chat_id=chat_id, text="🔄 Simulating tomorrow's date for testing...")
+            
+            from datetime import datetime, timedelta
+            import pytz
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            tomorrow = now + timedelta(days=1)
+            tomorrow_str = tomorrow.strftime('%Y-%m-%d')
+            
+            await bot.send_message(chat_id=chat_id, text=f"📅 Simulating date: {tomorrow_str}")
+            
+            # Test first reminder with tomorrow's date
+            users = await reminder_system.get_users_for_reminder(tomorrow_str)
+            await bot.send_message(chat_id=chat_id, text=f"📊 Found {len(users)} eligible users for {tomorrow_str}")
+            
+            if users:
+                # Send reminders to each user
+                for user in users:
+                    await reminder_system.send_pre_course_reminder(
+                        user['user_id'], 
+                        user['course_date'], 
+                        user['language']
+                    )
+                    await asyncio.sleep(1)
+                
+                await bot.send_message(chat_id=chat_id, text=f"✅ Sent {len(users)} first reminders for {tomorrow_str}!")
+            else:
+                await bot.send_message(chat_id=chat_id, text=f"❌ No users found for {tomorrow_str}")
+                
+        elif text == '/test_simulate_today':
+            # Simulate today's date for day course reminders
+            await bot.send_message(chat_id=chat_id, text="🔄 Simulating today's date for day course testing...")
+            
+            from datetime import datetime
+            import pytz
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            today_str = now.strftime('%Y-%m-%d')
+            
+            await bot.send_message(chat_id=chat_id, text=f"📅 Simulating date: {today_str}")
+            
+            # Test second reminder with today's date
+            users = await reminder_system.get_users_for_day_reminder(today_str)
+            await bot.send_message(chat_id=chat_id, text=f"📊 Found {len(users)} eligible users for {today_str}")
+            
+            if users:
+                # Send reminders to each user
+                for user in users:
+                    await reminder_system.send_day_course_reminder(
+                        user['user_id'], 
+                        user['course_date'], 
+                        user['language']
+                    )
+                    await asyncio.sleep(1)
+                
+                await bot.send_message(chat_id=chat_id, text=f"✅ Sent {len(users)} day course reminders for {today_str}!")
+            else:
+                await bot.send_message(chat_id=chat_id, text=f"❌ No users found for {today_str}")
+                
         elif text == '/test_reminder_help':
             # Show help
             help_text = """🔧 **Reminder Test Commands**
@@ -362,9 +424,11 @@ async def handle_reminder_test_command(text, user_id, message):
 `/test_reminder_second` - Test second reminder (day course)  
 `/test_reminder_both` - Test both reminders
 `/test_reminder_status` - Check reminder status for today
+`/test_simulate_tomorrow` - Simulate tomorrow's date for first reminders
+`/test_simulate_today` - Simulate today's date for day course reminders
 `/test_reminder_help` - Show this help
 
-**Note**: These commands will send actual reminders to users who are eligible today."""
+**Note**: These commands will send actual reminders to users who are eligible for the specified dates."""
             
             await bot.send_message(chat_id=chat_id, text=help_text)
             
