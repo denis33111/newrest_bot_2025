@@ -243,8 +243,9 @@ class RegistrationFlow:
         
         if success:
             # Store candidate data for admin evaluation
-            from handlers.message_handler import candidate_data_storage
-            candidate_data_storage[self.user_id] = self.data.copy()
+            import handlers.message_handler
+            handlers.message_handler.candidate_data_storage[self.user_id] = self.data.copy()
+            logger.info(f"Stored candidate data for user {self.user_id}: {self.data}")
             
             # Notify admin group
             admin_eval = AdminEvaluation(self.user_id, self.data)
