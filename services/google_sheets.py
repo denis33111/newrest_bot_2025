@@ -61,9 +61,13 @@ def retry_on_quota_error_async(max_retries=3, delay=2):
         return async_wrapper
     return decorator
 
-@retry_on_quota_error(max_retries=3, delay=2)
 def init_google_sheets():
-    """Initialize Google Sheets connection"""
+    """Initialize Google Sheets connection with retry logic"""
+    return _init_google_sheets_with_retry()
+
+@retry_on_quota_error(max_retries=3, delay=2)
+def _init_google_sheets_with_retry():
+    """Internal function with retry decorator"""
     try:
         # Parse private key
         private_key = os.getenv('GOOGLE_PRIVATE_KEY').replace('\\n', '\n')

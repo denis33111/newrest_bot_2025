@@ -53,6 +53,44 @@ class WorkingConsole:
             
         except Exception as e:
             logger.error(f"Error showing working console: {e}")
+            # Show basic working console even if Google Sheets fails
+            await self._show_basic_working_console()
+    
+    async def _show_basic_working_console(self):
+        """Show basic working console when Google Sheets is unavailable"""
+        try:
+            # Create basic keyboard with both buttons
+            keyboard = [
+                [KeyboardButton("🟢 Check In"), KeyboardButton("🔚 Check Out")],
+                [KeyboardButton("📞 Contact")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard, 
+                resize_keyboard=True, 
+                one_time_keyboard=False,
+                is_persistent=True
+            )
+            
+            # Basic message
+            message = """✅ **Welcome to NewRest Bot!**
+
+**System Status:** ⚠️ Limited (Google Sheets temporarily unavailable)
+
+**Available Actions:**
+• Check In/Out (location verification required)
+• Contact support
+
+**Note:** Some features may be limited due to system maintenance."""
+            
+            await self.bot.send_message(
+                chat_id=self.user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            logger.error(f"Error showing basic working console: {e}")
             await self._send_error_message()
     
     def _create_working_keyboard(self, status, language):

@@ -59,6 +59,10 @@ async def handle_telegram_message(message):
             # Disabled user - no response
             logger.info(f"Disabled user {user_id} - ignoring message")
             return
+        elif user_status == 'ERROR':
+            # Google Sheets error - show working console anyway
+            logger.warning(f"Google Sheets error for user {user_id}, showing working console")
+            await handle_working_message(user_id, message)
         else:
             await send_unknown_status_message(user_id)
             
