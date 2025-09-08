@@ -57,9 +57,9 @@ class WorkingConsole:
         
         # Check In/Out button based on status
         if status.get('checked_in', False):
-            check_button_text = f"🔚 {get_text(language, 'check_out')}"
+            check_button_text = "🔚 Check Out"
         else:
-            check_button_text = f"🟢 {get_text(language, 'check_in')}"
+            check_button_text = "🟢 Check In"
         
         check_button = KeyboardButton(check_button_text)
         

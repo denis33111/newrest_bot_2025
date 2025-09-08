@@ -94,7 +94,7 @@ async def handle_working_message(user_id, message):
         # Check if it's a text message with working console commands
         text = message.get('text', '')
         
-        if 'Check In' in text or 'Check Out' in text or 'Εγγραφή' in text or 'Αποχώρηση' in text:
+        if 'Check In' in text or 'Check Out' in text:
             await working_console.handle_check_in_out(text)
         elif 'Contact' in text or 'Επικοινωνία' in text:
             await working_console.handle_contact()
