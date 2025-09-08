@@ -78,7 +78,21 @@ REGISTRATION_QUESTIONS = {
         'check_internet': 'Check your internet connection',
         'try_again': 'Try again in a moment',
         'contact_support': 'Contact support if the problem continues',
-        'working_on_fix': "We're working to fix this issue."
+        'working_on_fix': "We're working to fix this issue.",
+        # New smart console translations
+        'work_completed_today': 'Your work is completed today',
+        'already_checked_in': 'You have already checked in today',
+        'next_action': 'Next action',
+        'check_out_when_done': 'Press Check Out when you finish your shift',
+        'check_in_tomorrow': 'You can check in tomorrow',
+        'not_checked_in': 'You have not checked in today',
+        'must_check_in_first': 'You must check in first',
+        'back_to_menu': 'Back to Menu',
+        'check_in_successful': 'Check-in successful',
+        'verified': 'Verified',
+        'working': 'Working',
+        'work_session_started': 'Your work session has started!',
+        'check_out_successful': 'Check-out successful'
     },
     'gr': {
         'language_selection': 'Παρακαλώ επιλέξτε γλώσσα',
@@ -146,7 +160,21 @@ REGISTRATION_QUESTIONS = {
         'check_internet': 'Ελέγξτε τη σύνδεσή σας στο internet',
         'try_again': 'Δοκιμάστε ξανά σε λίγο',
         'contact_support': 'Επικοινωνήστε με την υποστήριξη αν το πρόβλημα συνεχίζεται',
-        'working_on_fix': 'Εργαζόμαστε για να διορθώσουμε αυτό το πρόβλημα.'
+        'working_on_fix': 'Εργαζόμαστε για να διορθώσουμε αυτό το πρόβλημα.',
+        # New smart console translations
+        'work_completed_today': 'Η εργασία σας ολοκληρώθηκε σήμερα',
+        'already_checked_in': 'Έχετε ήδη κάνει εγγραφή σήμερα',
+        'next_action': 'Επόμενη ενέργεια',
+        'check_out_when_done': 'Πατήστε Check Out όταν τελειώσετε τη βάρδια',
+        'check_in_tomorrow': 'Μπορείτε να κάνετε εγγραφή αύριο',
+        'not_checked_in': 'Δεν έχετε κάνει εγγραφή σήμερα',
+        'must_check_in_first': 'Πρέπει να κάνετε εγγραφή πρώτα',
+        'back_to_menu': 'Πίσω στο μενού',
+        'check_in_successful': 'Εγγραφή επιτυχής',
+        'verified': 'Επαληθευμένη',
+        'working': 'Εργασία',
+        'work_session_started': 'Η εργασιακή σας συνεδρία ξεκίνησε!',
+        'check_out_successful': 'Αποχώρηση επιτυχής'
     }
 }
 

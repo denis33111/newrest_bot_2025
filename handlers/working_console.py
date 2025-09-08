@@ -7,12 +7,16 @@ Manages check-in/out system for working users
 import os
 import logging
 from datetime import datetime
+import pytz
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from services.google_sheets import get_user_working_status, update_working_status
 from services.location_service import validate_work_location
 from handlers.language_system import get_text, get_buttons
 
 logger = logging.getLogger(__name__)
+
+# Global pending actions dictionary for state management
+pending_actions = {}
 
 class WorkingConsole:
     def __init__(self, user_id):
@@ -52,44 +56,101 @@ class WorkingConsole:
             await self._send_error_message()
     
     def _create_working_keyboard(self, status, language):
-        """Create permanent working console keyboard"""
+        """Create smart keyboard based on current attendance status"""
         keyboard = []
         
-        # Check In/Out button based on status
-        if status.get('checked_in', False):
-            check_button_text = "🔚 Check Out"
+        # Determine current status
+        current_status = self._get_attendance_status(status)
+        
+        if current_status == 'CHECKED_IN':
+            # Worker is checked in, show only check-out button
+            check_out_button = KeyboardButton("🔚 Check Out")
+            contact_button = KeyboardButton(f"📞 {get_text(language, 'contact')}")
+            keyboard.append([check_out_button, contact_button])
+            
+        elif current_status == 'COMPLETE':
+            # Worker completed today, show only check-in button
+            check_in_button = KeyboardButton("🟢 Check In")
+            contact_button = KeyboardButton(f"📞 {get_text(language, 'contact')}")
+            keyboard.append([check_in_button, contact_button])
+            
         else:
-            check_button_text = "🟢 Check In"
-        
-        check_button = KeyboardButton(check_button_text)
-        
-        # Contact button
-        contact_button_text = f"📞 {get_text(language, 'contact')}"
-        contact_button = KeyboardButton(contact_button_text)
-        
-        # Add buttons to keyboard
-        keyboard.append([check_button, contact_button])
+            # Worker not checked in today, show only check-in button
+            check_in_button = KeyboardButton("🟢 Check In")
+            contact_button = KeyboardButton(f"📞 {get_text(language, 'contact')}")
+            keyboard.append([check_in_button, contact_button])
         
         return keyboard
     
-    def _create_status_message(self, status, language):
-        """Create status message based on current state"""
-        if status.get('checked_in', False):
-            # User is checked in
-            check_in_time = status.get('check_in_time', 'Unknown')
+    def _get_attendance_status(self, status):
+        """Determine attendance status from Google Sheets data"""
+        try:
+            # Check if user has check-in time
+            check_in_time = status.get('check_in_time', '')
+            check_out_time = status.get('check_out_time', '')
             
-            message = f"""✅ **{get_text(language, 'welcome_back')}, {status.get('user_name', 'User')}!**
+            if not check_in_time:
+                return 'NOT_CHECKED_IN'
+            elif check_in_time and not check_out_time:
+                return 'CHECKED_IN'
+            elif check_in_time and check_out_time:
+                return 'COMPLETE'
+            else:
+                return 'NOT_CHECKED_IN'
+                
+        except Exception as e:
+            logger.error(f"Error determining attendance status: {e}")
+            return 'NOT_CHECKED_IN'
+    
+    def _create_status_message(self, status, language):
+        """Create smart status message based on current attendance state"""
+        current_status = self._get_attendance_status(status)
+        user_name = status.get('user_name', 'User')
+        
+        if current_status == 'CHECKED_IN':
+            # User is checked in but not out
+            check_in_time = status.get('check_in_time', 'Unknown')
+            message = f"""✅ **{get_text(language, 'welcome_back')}, {user_name}!**
 
 {get_text(language, 'already_registered')}
 
 **{get_text(language, 'status_checked_in')}**
 **{get_text(language, 'check_in_time')}** {check_in_time}
-**{get_text(language, 'location_verified')}**
 
 {get_text(language, 'use_buttons_below')}"""
+            
+        elif current_status == 'COMPLETE':
+            # User completed today's work
+            check_in_time = status.get('check_in_time', '')
+            check_out_time = status.get('check_out_time', '')
+            work_hours = status.get('today_hours', '0h 0m')
+            
+            if '-' in check_in_time:
+                # Format: "HH:MM-HH:MM"
+                check_in, check_out = check_in_time.split('-')
+                message = f"""✅ **{get_text(language, 'welcome_back')}, {user_name}!**
+
+{get_text(language, 'already_registered')}
+
+**{get_text(language, 'work_completed_today')}**
+**{get_text(language, 'check_in_time')}** {check_in}
+**{get_text(language, 'check_out_time')}** {check_out}
+**{get_text(language, 'total_hours')}** {work_hours}
+
+{get_text(language, 'use_buttons_below')}"""
+            else:
+                message = f"""✅ **{get_text(language, 'welcome_back')}, {user_name}!**
+
+{get_text(language, 'already_registered')}
+
+**{get_text(language, 'work_completed_today')}**
+**{get_text(language, 'total_hours')}** {work_hours}
+
+{get_text(language, 'use_buttons_below')}"""
+                
         else:
-            # User is not checked in
-            message = f"""✅ **{get_text(language, 'welcome_back')}, {status.get('user_name', 'User')}!**
+            # User not checked in today
+            message = f"""✅ **{get_text(language, 'welcome_back')}, {user_name}!**
 
 {get_text(language, 'already_registered')}
 
@@ -98,17 +159,18 @@ class WorkingConsole:
         return message
     
     async def handle_check_in_out(self, message_text):
-        """Handle check in/out button press"""
+        """Handle check in/out button press with smart status detection"""
         try:
-            # Get user language first
+            # Get user language and current status
             status = await get_user_working_status(self.user_id)
             user_language = status.get('language', 'gr')
+            current_status = self._get_attendance_status(status)
             
-            # Check for localized button text
-            if get_text(user_language, 'check_in') in message_text or "Check In" in message_text:
-                await self._handle_check_in(user_language)
-            elif get_text(user_language, 'check_out') in message_text or "Check Out" in message_text:
-                await self._handle_check_out(user_language)
+            # Check for button text (English only as per requirements)
+            if "Check In" in message_text:
+                await self._handle_check_in(user_language, current_status)
+            elif "Check Out" in message_text:
+                await self._handle_check_out(user_language, current_status)
             else:
                 await self._send_error_message(user_language)
                 
@@ -116,22 +178,81 @@ class WorkingConsole:
             logger.error(f"Error handling check in/out: {e}")
             await self._send_error_message('gr')
     
-    async def _handle_check_in(self, language):
-        """Handle check in process"""
+    async def _handle_check_in(self, language, current_status):
+        """Handle check in process with smart status detection"""
         try:
-            # Request location for check in immediately
-            # Status check will be done when location is received
+            # Check if already checked in today
+            if current_status == 'CHECKED_IN':
+                status = await get_user_working_status(self.user_id)
+                check_in_time = status.get('check_in_time', 'Unknown')
+                message = f"""✅ **{get_text(language, 'already_checked_in')}**
+
+**{get_text(language, 'check_in_time')}** {check_in_time}
+
+**{get_text(language, 'next_action')}** {get_text(language, 'check_out_when_done')}"""
+                
+                await self.bot.send_message(
+                    chat_id=self.user_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Check if already completed today
+            elif current_status == 'COMPLETE':
+                status = await get_user_working_status(self.user_id)
+                check_in_time = status.get('check_in_time', '')
+                work_hours = status.get('today_hours', '0h 0m')
+                
+                if '-' in check_in_time:
+                    check_in, check_out = check_in_time.split('-')
+                    message = f"""✅ **{get_text(language, 'work_completed_today')}**
+
+**{get_text(language, 'check_in_time')}** {check_in}
+**{get_text(language, 'check_out_time')}** {check_out}
+**{get_text(language, 'total_hours')}** {work_hours}
+
+**{get_text(language, 'next_action')}** {get_text(language, 'check_in_tomorrow')}"""
+                else:
+                    message = f"""✅ **{get_text(language, 'work_completed_today')}**
+
+**{get_text(language, 'total_hours')}** {work_hours}
+
+**{get_text(language, 'next_action')}** {get_text(language, 'check_in_tomorrow')}"""
+                
+                await self.bot.send_message(
+                    chat_id=self.user_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Proceed with check-in
             await self._request_location_for_check_in(language)
             
         except Exception as e:
             logger.error(f"Error in check in process: {e}")
             await self._send_error_message(language)
     
-    async def _handle_check_out(self, language):
-        """Handle check out process"""
+    async def _handle_check_out(self, language, current_status):
+        """Handle check out process with smart status detection"""
         try:
-            # Request location for check out immediately
-            # Status check will be done when location is received
+            # Check if not checked in today
+            if current_status != 'CHECKED_IN':
+                message = f"""❌ **{get_text(language, 'not_checked_in')}**
+
+**{get_text(language, 'must_check_in_first')}**
+
+{get_text(language, 'use_buttons_below')}"""
+                
+                await self.bot.send_message(
+                    chat_id=self.user_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Proceed with check-out
             await self._request_location_for_check_out(language)
             
         except Exception as e:
@@ -139,55 +260,110 @@ class WorkingConsole:
             await self._send_error_message(language)
     
     async def _request_location_for_check_in(self, language):
-        """Request location for check in"""
-        keyboard = [
-            [KeyboardButton("📍 Share Location", request_location=True)]
-        ]
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard, 
-            resize_keyboard=True, 
-            one_time_keyboard=False,
-            is_persistent=True
-        )
-        
-        message = f"""📍 **{get_text(language, 'check_in_required')}**
+        """Request location for check in with pending action tracking"""
+        try:
+            # Get user name for pending action
+            status = await get_user_working_status(self.user_id)
+            user_name = status.get('user_name', 'User')
+            
+            # Store pending check-in action
+            greece_tz = pytz.timezone('Europe/Athens')
+            pending_actions[self.user_id] = {
+                'worker_name': user_name,
+                'action': 'checkin',
+                'timestamp': datetime.now(greece_tz)
+            }
+            logger.info(f"Stored check-in pending action for user {self.user_id}: {pending_actions[self.user_id]}")
+            
+            # Create location request keyboard with back button
+            keyboard = [
+                [KeyboardButton("📍 Share Location", request_location=True)],
+                [KeyboardButton(f"🏠 {get_text(language, 'back_to_menu')}")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard, 
+                resize_keyboard=True, 
+                one_time_keyboard=False,
+                is_persistent=True
+            )
+            
+            message = f"""📍 **{get_text(language, 'check_in_required')}**
 
-{get_text(language, 'tap_share_location')}"""
-        
-        await self.bot.send_message(
-            chat_id=self.user_id,
-            text=message,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
+**{get_text(language, 'tap_share_location')}**
+
+⚠️ **{get_text(language, 'location_verification_note')}**"""
+            
+            await self.bot.send_message(
+                chat_id=self.user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            logger.error(f"Error requesting location for check-in: {e}")
+            await self._send_error_message(language)
     
     async def _request_location_for_check_out(self, language):
-        """Request location for check out"""
-        keyboard = [
-            [KeyboardButton("📍 Share Location", request_location=True)]
-        ]
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard, 
-            resize_keyboard=True, 
-            one_time_keyboard=False,
-            is_persistent=True
-        )
-        
-        message = f"""📍 **{get_text(language, 'check_out_required')}**
+        """Request location for check out with pending action tracking"""
+        try:
+            # Get user name for pending action
+            status = await get_user_working_status(self.user_id)
+            user_name = status.get('user_name', 'User')
+            
+            # Store pending check-out action
+            greece_tz = pytz.timezone('Europe/Athens')
+            pending_actions[self.user_id] = {
+                'worker_name': user_name,
+                'action': 'checkout',
+                'timestamp': datetime.now(greece_tz)
+            }
+            logger.info(f"Stored check-out pending action for user {self.user_id}: {pending_actions[self.user_id]}")
+            
+            # Create location request keyboard with back button
+            keyboard = [
+                [KeyboardButton("📍 Share Location", request_location=True)],
+                [KeyboardButton(f"🏠 {get_text(language, 'back_to_menu')}")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard, 
+                resize_keyboard=True, 
+                one_time_keyboard=False,
+                is_persistent=True
+            )
+            
+            message = f"""📍 **{get_text(language, 'check_out_required')}**
 
-{get_text(language, 'tap_share_location')}"""
-        
-        await self.bot.send_message(
-            chat_id=self.user_id,
-            text=message,
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
+**{get_text(language, 'tap_share_location')}**
+
+⚠️ **{get_text(language, 'location_verification_note')}**"""
+            
+            await self.bot.send_message(
+                chat_id=self.user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            logger.error(f"Error requesting location for check-out: {e}")
+            await self._send_error_message(language)
     
     async def handle_location(self, location):
-        """Handle location sharing for check in/out"""
+        """Handle location sharing for check in/out with pending action tracking"""
         try:
             logger.info(f"Handling location: {location}")
+            
+            # Check if user has a pending action
+            pending_action = pending_actions.get(self.user_id)
+            logger.info(f"Checking pending actions for user {self.user_id}")
+            logger.info(f"Current pending actions: {pending_actions}")
+            logger.info(f"User's pending action: {pending_action}")
+            
+            if not pending_action:
+                # No pending action, ignore location
+                logger.info(f"No pending action for user {self.user_id}, ignoring location")
+                return
             
             # Validate location
             is_valid = validate_work_location(location)
@@ -214,32 +390,36 @@ class WorkingConsole:
                     text=error_message,
                     parse_mode='Markdown'
                 )
-                # Show working console again
+                
+                # Clear pending action and return to main menu
+                pending_actions.pop(self.user_id, None)
                 await self.show_working_console()
                 return
             
-            # Process check in/out based on current status
-            logger.info(f"Getting working status for user {self.user_id}")
-            status = await get_user_working_status(self.user_id)
-            logger.info(f"Working status: {status}")
+            # Location verified, proceed with action
+            logger.info(f"Location verified, proceeding with action: {pending_action['action']}")
+            if pending_action['action'] == 'checkin':
+                logger.info(f"Calling complete_checkin for user {self.user_id}")
+                await self._complete_checkin(location)
+            elif pending_action['action'] == 'checkout':
+                logger.info(f"Calling complete_checkout for user {self.user_id}")
+                await self._complete_checkout(location)
             
-            language = status.get('language', 'gr')
-            
-            if status.get('checked_in', False):
-                # User is already checked in - process check out
-                await self._process_check_out(location)
-            else:
-                # User is not checked in - process check in
-                await self._process_check_in(location)
+            # Clear pending action
+            logger.info(f"Clearing pending action for user {self.user_id}")
+            pending_actions.pop(self.user_id, None)
+            logger.info(f"Pending actions after clearing: {pending_actions}")
                 
         except Exception as e:
             logger.error(f"Error handling location: {e}")
             await self._send_error_message()
+            # Clear pending action on error
+            pending_actions.pop(self.user_id, None)
             # Restore working console on error
             await self.show_working_console()
     
-    async def _process_check_in(self, location):
-        """Process successful check in"""
+    async def _complete_checkin(self, location):
+        """Complete check-in after location verification"""
         try:
             from services.google_sheets import get_greek_time
             current_time = get_greek_time()
@@ -253,13 +433,17 @@ class WorkingConsole:
             )
             
             if success:
-                message = f"""✅ **Checked In Successfully**
+                # Get user language for localized message
+                status = await get_user_working_status(self.user_id)
+                language = status.get('language', 'gr')
+                
+                message = f"""✅ **{get_text(language, 'check_in_successful')}**
 
-**Time:** {current_time}
-**Location:** Verified ✅
-**Status:** Working
+**{get_text(language, 'time')}** {current_time}
+**{get_text(language, 'location')}** {get_text(language, 'verified')} ✅
+**{get_text(language, 'status')}** {get_text(language, 'working')}
 
-Your work session has started!"""
+{get_text(language, 'work_session_started')}"""
                 
                 await self.bot.send_message(
                     chat_id=self.user_id,
@@ -267,19 +451,22 @@ Your work session has started!"""
                     parse_mode='Markdown'
                 )
                 
+                # Return to main menu with updated status
+                await self.show_working_console()
+                
             else:
                 await self._send_error_message()
                 # Restore working console on error
                 await self.show_working_console()
                 
         except Exception as e:
-            logger.error(f"Error processing check in: {e}")
+            logger.error(f"Error completing check in: {e}")
             await self._send_error_message()
             # Restore working console on error
             await self.show_working_console()
     
-    async def _process_check_out(self, location):
-        """Process successful check out"""
+    async def _complete_checkout(self, location):
+        """Complete check-out after location verification"""
         try:
             from services.google_sheets import get_greek_time
             current_time = get_greek_time()
@@ -287,6 +474,7 @@ Your work session has started!"""
             # Get check in time to calculate hours
             status = await get_user_working_status(self.user_id)
             check_in_time = status.get('check_in_time', '00:00')
+            language = status.get('language', 'gr')
             
             # Calculate work hours
             work_hours = self._calculate_work_hours(check_in_time, current_time)
@@ -301,14 +489,14 @@ Your work session has started!"""
             )
             
             if success:
-                message = f"""✅ **Checked Out Successfully**
+                message = f"""✅ **{get_text(language, 'check_out_successful')}**
 
-**Check-in:** {check_in_time}
-**Check-out:** {current_time}
-**Total Hours:** {work_hours}
-**Location:** Verified ✅
+**{get_text(language, 'check_in_time')}** {check_in_time}
+**{get_text(language, 'check_out_time')}** {current_time}
+**{get_text(language, 'total_hours')}** {work_hours}
+**{get_text(language, 'location')}** {get_text(language, 'verified')} ✅
 
-Great work today!"""
+{get_text(language, 'great_work_today')}"""
                 
                 await self.bot.send_message(
                     chat_id=self.user_id,
@@ -316,13 +504,16 @@ Great work today!"""
                     parse_mode='Markdown'
                 )
                 
+                # Return to main menu with updated status
+                await self.show_working_console()
+                
             else:
                 await self._send_error_message()
                 # Restore working console on error
                 await self.show_working_console()
                 
         except Exception as e:
-            logger.error(f"Error processing check out: {e}")
+            logger.error(f"Error completing check out: {e}")
             await self._send_error_message()
             # Restore working console on error
             await self.show_working_console()

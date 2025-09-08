@@ -98,6 +98,9 @@ async def handle_working_message(user_id, message):
             await working_console.handle_check_in_out(text)
         elif 'Contact' in text or 'Επικοινωνία' in text:
             await working_console.handle_contact()
+        elif 'Back to Menu' in text or 'Πίσω στο μενού' in text:
+            # Handle back to menu button
+            await working_console.show_working_console()
         else:
             # Show working console for any other message
             await working_console.show_working_console()
