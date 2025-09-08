@@ -366,7 +366,18 @@ We wish you all the best in your future endeavors!"""
                     language = language_col[i]
                     user_status = user_status_map.get(user_id)
                     
-                    if (pre_course_reminder == target_date and
+                    # Check if user should get a reminder:
+                    # 1. Course is tomorrow (course_date = target_date + 1 day)
+                    # 2. Haven't been sent first reminder yet
+                    # 3. User status is valid (not REJECTED/CANCELLED)
+                    from datetime import datetime, timedelta
+                    import pytz
+                    
+                    greece_tz = pytz.timezone('Europe/Athens')
+                    target_datetime = datetime.strptime(target_date, '%Y-%m-%d').replace(tzinfo=greece_tz)
+                    tomorrow_date = (target_datetime + timedelta(days=1)).strftime('%Y-%m-%d')
+                    
+                    if (course_date == tomorrow_date and
                         not first_reminder_sent and
                         user_status not in ['REJECTED', 'CANCELLED']):
                         users_to_remind.append({
@@ -376,6 +387,7 @@ We wish you all the best in your future endeavors!"""
                         })
             
             logger.info(f"Found {len(users_to_remind)} users to remind for {target_date}")
+            logger.info(f"Looking for users with course_date = {tomorrow_date} (tomorrow)")
             return users_to_remind
             
         except Exception as e:
