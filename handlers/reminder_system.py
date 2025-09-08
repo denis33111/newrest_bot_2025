@@ -327,14 +327,22 @@ We wish you all the best in your future endeavors!"""
             registration_sheet = sheets_data['sheets']['registration']
             workers_sheet = sheets_data['sheets']['workers']
             
-            # Get all data
+            # Get specific columns to avoid duplicate header issues
+            # Read only the columns we need from each sheet
             registration_data = registration_sheet.get_all_records()
-            workers_data = workers_sheet.get_all_records()
+            
+            # Read only specific columns from workers sheet to avoid conflicts
+            workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
+            workers_status_col = workers_sheet.col_values(3)  # Column C (STATUS)
             
             # Create a mapping of user_id to status
             user_status_map = {}
-            for worker in workers_data:
-                user_status_map[worker.get('ID')] = worker.get('STATUS')
+            for i in range(1, len(workers_id_col)):  # Skip header row
+                if i < len(workers_status_col):
+                    user_id = workers_id_col[i]
+                    status = workers_status_col[i]
+                    if user_id and status:
+                        user_status_map[user_id] = status
             
             # Find users with PRE_COURSE_REMINDER matching target_date
             # AND who haven't been sent a reminder yet
@@ -370,14 +378,22 @@ We wish you all the best in your future endeavors!"""
             registration_sheet = sheets_data['sheets']['registration']
             workers_sheet = sheets_data['sheets']['workers']
             
-            # Get all data
+            # Get specific columns to avoid duplicate header issues
+            # Read only the columns we need from each sheet
             registration_data = registration_sheet.get_all_records()
-            workers_data = workers_sheet.get_all_records()
+            
+            # Read only specific columns from workers sheet to avoid conflicts
+            workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
+            workers_status_col = workers_sheet.col_values(3)  # Column C (STATUS)
             
             # Create a mapping of user_id to status
             user_status_map = {}
-            for worker in workers_data:
-                user_status_map[worker.get('ID')] = worker.get('STATUS')
+            for i in range(1, len(workers_id_col)):  # Skip header row
+                if i < len(workers_status_col):
+                    user_id = workers_id_col[i]
+                    status = workers_status_col[i]
+                    if user_id and status:
+                        user_status_map[user_id] = status
             
             # Find users with DAY_COURSE_REMINDER matching target_date 
             # AND status APPROVED_COURSE_DATE_SET
@@ -527,14 +543,18 @@ You can check in/out as needed throughout the day."""
                 return False
             
             workers_sheet = sheets_data['sheets']['workers']
-            workers_data = workers_sheet.get_all_records()
+            
+            # Read only specific columns to avoid duplicate header issues
+            workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
+            workers_name_col = workers_sheet.col_values(1)  # Column A (NAME)
             
             # Find user name
             user_name = "Unknown"
-            for worker in workers_data:
-                if str(worker.get('ID')) == str(user_id):
-                    user_name = worker.get('NAME', 'Unknown')
-                    break
+            for i in range(1, len(workers_id_col)):  # Skip header row
+                if i < len(workers_name_col):
+                    if str(workers_id_col[i]) == str(user_id):
+                        user_name = workers_name_col[i] or 'Unknown'
+                        break
             
             # Find the correct date column
             all_values = monthly_sheet.get_all_values()
@@ -664,13 +684,14 @@ You can check in/out as needed throughout the day."""
             
             registration_sheet = sheets_data['sheets']['registration']
             
-            # Find user row
-            all_data = registration_sheet.get_all_records()
-            user_row = None
+            # Read only specific columns to avoid duplicate header issues
+            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
             
-            for i, row in enumerate(all_data, start=2):  # Skip header row
-                if str(row.get('user id')) == str(user_id):
-                    user_row = i
+            # Find user row
+            user_row = None
+            for i in range(1, len(user_id_col)):  # Skip header row
+                if str(user_id_col[i]) == str(user_id):
+                    user_row = i + 1  # +1 because col_values is 0-indexed but sheet rows are 1-indexed
                     break
             
             if user_row:
@@ -699,13 +720,14 @@ You can check in/out as needed throughout the day."""
             
             registration_sheet = sheets_data['sheets']['registration']
             
-            # Find user row
-            all_data = registration_sheet.get_all_records()
-            user_row = None
+            # Read only specific columns to avoid duplicate header issues
+            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
             
-            for i, row in enumerate(all_data, start=2):  # Skip header row
-                if str(row.get('user id')) == str(user_id):
-                    user_row = i
+            # Find user row
+            user_row = None
+            for i in range(1, len(user_id_col)):  # Skip header row
+                if str(user_id_col[i]) == str(user_id):
+                    user_row = i + 1  # +1 because col_values is 0-indexed but sheet rows are 1-indexed
                     break
             
             if user_row:
@@ -730,11 +752,15 @@ You can check in/out as needed throughout the day."""
                 return 0
             
             registration_sheet = sheets_data['sheets']['registration']
-            all_data = registration_sheet.get_all_records()
             
-            for row in all_data:
-                if str(row.get('user id')) == str(user_id):
-                    return int(row.get('RETRY_COUNT', 0))
+            # Read only specific columns to avoid duplicate header issues
+            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+            retry_count_col = registration_sheet.col_values(24)  # Column X (RETRY_COUNT)
+            
+            for i in range(1, len(user_id_col)):  # Skip header row
+                if i < len(retry_count_col):
+                    if str(user_id_col[i]) == str(user_id):
+                        return int(retry_count_col[i] or 0)
             
             return 0
             
@@ -750,13 +776,17 @@ You can check in/out as needed throughout the day."""
                 return False
             
             registration_sheet = sheets_data['sheets']['registration']
-            all_data = registration_sheet.get_all_records()
             
-            for i, row in enumerate(all_data, start=2):
-                if str(row.get('user id')) == str(user_id):
-                    current_count = int(row.get('RETRY_COUNT', 0))
-                    registration_sheet.update_cell(i, 22, current_count + 1)  # Column V
-                    return True
+            # Read only specific columns to avoid duplicate header issues
+            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+            retry_count_col = registration_sheet.col_values(24)  # Column X (RETRY_COUNT)
+            
+            for i in range(1, len(user_id_col)):  # Skip header row
+                if i < len(retry_count_col):
+                    if str(user_id_col[i]) == str(user_id):
+                        current_count = int(retry_count_col[i] or 0)
+                        registration_sheet.update_cell(i + 1, 24, current_count + 1)  # Column X (+1 for 1-indexed)
+                        return True
             
             return False
             
@@ -772,11 +802,13 @@ You can check in/out as needed throughout the day."""
                 return False
             
             registration_sheet = sheets_data['sheets']['registration']
-            all_data = registration_sheet.get_all_records()
             
-            for i, row in enumerate(all_data, start=2):
-                if str(row.get('user id')) == str(user_id):
-                    registration_sheet.update_cell(i, 22, 0)  # Column V
+            # Read only specific columns to avoid duplicate header issues
+            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+            
+            for i in range(1, len(user_id_col)):  # Skip header row
+                if str(user_id_col[i]) == str(user_id):
+                    registration_sheet.update_cell(i + 1, 24, 0)  # Column X (+1 for 1-indexed)
                     return True
             
             return False
