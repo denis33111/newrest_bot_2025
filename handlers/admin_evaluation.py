@@ -395,7 +395,7 @@ class AdminEvaluation:
             logger.info(f"notify_user_result - extracted name: {name}")
             
             if approved:
-                message = f"""🎉 Συγχαρητήρια {name}!
+                message = f"""🎉 Συγχαρητήρια!
 
 Έχετε επιλεγεί για τη θέση **{position}**.
 
