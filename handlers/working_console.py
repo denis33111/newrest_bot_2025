@@ -482,9 +482,6 @@ class WorkingConsole:
                     parse_mode='Markdown'
                 )
                 
-                # Return to main menu with updated status
-                await self.show_working_console()
-                
             else:
                 await self._send_error_message()
                 # Restore working console on error
@@ -533,9 +530,6 @@ class WorkingConsole:
                     text=message,
                     parse_mode='Markdown'
                 )
-                
-                # Return to main menu with updated status
-                await self.show_working_console()
                 
             else:
                 await self._send_error_message()
