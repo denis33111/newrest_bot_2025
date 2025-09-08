@@ -372,7 +372,7 @@ We wish you all the best in your future endeavors!"""
                     
                     if (pre_course_reminder_str == target_date_str and
                         not first_reminder_sent and
-                        user_status not in ['REJECTED', 'CANCELLED']):
+                        (user_status is None or user_status not in ['REJECTED', 'CANCELLED'])):
                         users_to_remind.append({
                             'user_id': user_id,
                             'course_date': course_date,
@@ -386,7 +386,9 @@ We wish you all the best in your future endeavors!"""
             logger.info(f"Total users in registration: {len(user_id_col) - 1}")
             for i in range(1, min(6, len(user_id_col))):  # Log first 5 users for debugging
                 if i < len(pre_course_reminder_col):
-                    logger.info(f"User {i}: ID={user_id_col[i]}, PRE_COURSE_REMINDER={pre_course_reminder_col[i]}, FIRST_REMINDER_SENT={first_reminder_sent_col[i] if i < len(first_reminder_sent_col) else 'N/A'}")
+                    user_id_debug = user_id_col[i]
+                    user_status_debug = user_status_map.get(user_id_debug, 'NOT_IN_WORKERS')
+                    logger.info(f"User {i}: ID={user_id_debug}, PRE_COURSE_REMINDER={pre_course_reminder_col[i]}, FIRST_REMINDER_SENT={first_reminder_sent_col[i] if i < len(first_reminder_sent_col) else 'N/A'}, WORKERS_STATUS={user_status_debug}")
             
             return users_to_remind
             
