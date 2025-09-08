@@ -12,6 +12,8 @@ import asyncio
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 from googleapiclient.errors import HttpError
+from .connection_manager import connection_manager
+from .rate_limiter import rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +64,8 @@ def retry_on_quota_error_async(max_retries=3, delay=2):
     return decorator
 
 def init_google_sheets():
-    """Initialize Google Sheets connection with retry logic"""
-    return _init_google_sheets_with_retry()
+    """Initialize Google Sheets connection with connection pooling"""
+    return connection_manager.get_connection()
 
 @retry_on_quota_error(max_retries=3, delay=2)
 def _init_google_sheets_with_retry():
@@ -153,10 +155,25 @@ def get_monthly_sheet(sheet_name):
         return None
 
 def check_user_status(user_id):
-    """Check user status in WORKERS sheet - only ID and STATUS columns"""
+    """Check user status in WORKERS sheet with caching"""
     try:
         logger.info(f"🔍 DEBUG: Checking user status for user {user_id}")
         start_time = time.time()
+        
+        # Check cache first
+        cache_key = f"user_status_{user_id}"
+        cached_status = connection_manager.get_cached_data(cache_key)
+        if cached_status is not None:
+            cache_time = time.time() - start_time
+            logger.info(f"🔍 DEBUG: User status from cache: {cached_status} (took {cache_time:.2f}s)")
+            return cached_status
+        
+        # Rate limiting
+        if not rate_limiter.can_make_request():
+            logger.warning("🔍 DEBUG: Rate limit exceeded, returning cached data or error")
+            return 'ERROR'
+        
+        rate_limiter.record_request()
         
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
@@ -184,21 +201,23 @@ def check_user_status(user_id):
         # Check if user_id exists in ID column
         logger.info(f"🔍 DEBUG: Searching for user {user_id}...")
         search_start = time.time()
+        status = 'NOT_FOUND'
         for i, user_id_in_sheet in enumerate(id_column[1:], start=2):  # Skip header row
             if str(user_id) == str(user_id_in_sheet):
                 # Get corresponding status - use same index for status column
                 status = status_column[i-1] if i-1 < len(status_column) else 'UNKNOWN'
                 # Trim whitespace (tabs, spaces, newlines)
                 status = status.strip() if status else 'UNKNOWN'
-                search_time = time.time() - search_start
-                total_time = time.time() - start_time
-                logger.info(f"🔍 DEBUG: User {user_id} found in row {i} with status '{status}' (search: {search_time:.2f}s, total: {total_time:.2f}s)")
-                return status
+                break
         
         search_time = time.time() - search_start
         total_time = time.time() - start_time
-        logger.info(f"🔍 DEBUG: User {user_id} not found (search: {search_time:.2f}s, total: {total_time:.2f}s)")
-        return 'NOT_FOUND'
+        logger.info(f"🔍 DEBUG: User {user_id} status: '{status}' (search: {search_time:.2f}s, total: {total_time:.2f}s)")
+        
+        # Cache the result
+        connection_manager.set_cached_data(cache_key, status)
+        
+        return status
         
     except Exception as e:
         logger.error(f"Error checking user status: {e}")
@@ -311,10 +330,25 @@ def save_worker_data(data):
 # Working status and time tracking functions
 @retry_on_quota_error_async(max_retries=3, delay=2)
 async def get_user_working_status(user_id):
-    """Get user's current working status and today's data"""
+    """Get user's current working status and today's data with caching"""
     try:
         logger.info(f"🔍 DEBUG: Getting working status for user {user_id}")
         start_time = time.time()
+        
+        # Check cache first
+        cache_key = f"working_status_{user_id}"
+        cached_status = connection_manager.get_cached_data(cache_key)
+        if cached_status is not None:
+            cache_time = time.time() - start_time
+            logger.info(f"🔍 DEBUG: Working status from cache (took {cache_time:.2f}s)")
+            return cached_status
+        
+        # Rate limiting
+        if not rate_limiter.can_make_request():
+            logger.warning("🔍 DEBUG: Rate limit exceeded, returning cached data or error")
+            return {'checked_in': False, 'error': 'Rate limit exceeded', 'language': 'gr'}
+        
+        rate_limiter.record_request()
         
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
@@ -473,6 +507,10 @@ async def get_user_working_status(user_id):
         total_time = time.time() - start_time
         logger.info(f"🔍 DEBUG: Data parsing took {parse_time:.2f}s, total function time: {total_time:.2f}s")
         logger.info(f"🔍 DEBUG: Result: {result}")
+        
+        # Cache the result
+        connection_manager.set_cached_data(cache_key, result)
+        
         return result
             
     except Exception as e:
@@ -565,6 +603,10 @@ async def update_working_status(user_id, checked_in, check_in_time=None, check_o
         monthly_sheet.update_cell(user_row, today_column, today_data)
         
         logger.info(f"Updated working status for user {user_id}: {today_data}")
+        
+        # Clear cache for this user to force refresh
+        connection_manager.clear_cache()
+        
         return True
         
     except Exception as e:

@@ -199,16 +199,16 @@ class WorkingConsole:
     async def handle_check_in_out(self, message_text):
         """Handle check in/out button press with smart status detection"""
         try:
-            # Get user language and current status
+            # Get user language and current status ONCE
             status = await get_user_working_status(self.user_id)
             user_language = status.get('language', 'gr')
             current_status = self._get_attendance_status(status)
             
             # Check for button text (English only as per requirements)
             if "Check In" in message_text:
-                await self._handle_check_in(user_language, current_status)
+                await self._handle_check_in(user_language, current_status, status)
             elif "Check Out" in message_text:
-                await self._handle_check_out(user_language, current_status)
+                await self._handle_check_out(user_language, current_status, status)
             else:
                 await self._send_error_message(user_language)
                 
@@ -216,13 +216,12 @@ class WorkingConsole:
             logger.error(f"Error handling check in/out: {e}")
             await self._send_error_message('gr')
     
-    async def _handle_check_in(self, language, current_status):
+    async def _handle_check_in(self, language, current_status, status_data):
         """Handle check in process with smart status detection"""
         try:
             # Check if already checked in today
             if current_status == 'CHECKED_IN':
-                status = await get_user_working_status(self.user_id)
-                check_in_time = status.get('check_in_time', 'Unknown')
+                check_in_time = status_data.get('check_in_time', 'Unknown')
                 message = f"""✅ **{get_text(language, 'already_checked_in')}**
 
 **{get_text(language, 'check_in_time')}** {check_in_time}
@@ -238,9 +237,8 @@ class WorkingConsole:
             
             # Check if already completed today
             elif current_status == 'COMPLETE':
-                status = await get_user_working_status(self.user_id)
-                check_in_time = status.get('check_in_time', '')
-                work_hours = status.get('today_hours', '0h 0m')
+                check_in_time = status_data.get('check_in_time', '')
+                work_hours = status_data.get('today_hours', '0h 0m')
                 
                 if '-' in check_in_time:
                     check_in, check_out = check_in_time.split('-')
@@ -272,7 +270,7 @@ class WorkingConsole:
             logger.error(f"Error in check in process: {e}")
             await self._send_error_message(language)
     
-    async def _handle_check_out(self, language, current_status):
+    async def _handle_check_out(self, language, current_status, status_data):
         """Handle check out process with smart status detection"""
         try:
             # Check if not checked in today
