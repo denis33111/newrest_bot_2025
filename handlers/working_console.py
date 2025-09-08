@@ -119,17 +119,8 @@ class WorkingConsole:
     async def _handle_check_in(self, language):
         """Handle check in process"""
         try:
-            # Check if already checked in
-            status = await get_user_working_status(self.user_id)
-            if status.get('checked_in', False):
-                await self.bot.send_message(
-                    chat_id=self.user_id,
-                    text=f"✅ **{get_text(language, 'already_checked_in')}**\n\n{get_text(language, 'already_checked_in_message')}\n\n{get_text(language, 'use_check_out')}",
-                    parse_mode='Markdown'
-                )
-                return
-            
-            # Request location for check in
+            # Request location for check in immediately
+            # Status check will be done when location is received
             await self._request_location_for_check_in(language)
             
         except Exception as e:
@@ -139,17 +130,8 @@ class WorkingConsole:
     async def _handle_check_out(self, language):
         """Handle check out process"""
         try:
-            # Check if checked in
-            status = await get_user_working_status(self.user_id)
-            if not status.get('checked_in', False):
-                await self.bot.send_message(
-                    chat_id=self.user_id,
-                    text=f"ℹ️ **{get_text(language, 'not_checked_in')}**\n\n{get_text(language, 'not_checked_in_message')}\n\n{get_text(language, 'use_check_in')}",
-                    parse_mode='Markdown'
-                )
-                return
-            
-            # Request location for check out
+            # Request location for check out immediately
+            # Status check will be done when location is received
             await self._request_location_for_check_out(language)
             
         except Exception as e:
@@ -241,11 +223,13 @@ class WorkingConsole:
             status = await get_user_working_status(self.user_id)
             logger.info(f"Working status: {status}")
             
+            language = status.get('language', 'gr')
+            
             if status.get('checked_in', False):
-                # Check out
+                # User is already checked in - process check out
                 await self._process_check_out(location)
             else:
-                # Check in
+                # User is not checked in - process check in
                 await self._process_check_in(location)
                 
         except Exception as e:
@@ -283,8 +267,6 @@ Your work session has started!"""
                     parse_mode='Markdown'
                 )
                 
-                # Show working console with updated status
-                await self.show_working_console()
             else:
                 await self._send_error_message()
                 # Restore working console on error
@@ -334,8 +316,6 @@ Great work today!"""
                     parse_mode='Markdown'
                 )
                 
-                # Show working console with updated status
-                await self.show_working_console()
             else:
                 await self._send_error_message()
                 # Restore working console on error
