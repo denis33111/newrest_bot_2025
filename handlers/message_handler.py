@@ -269,20 +269,44 @@ async def handle_reminder_test_command(text, user_id, message):
         if text == '/test_reminder_first':
             # Test first reminder (pre-course)
             await bot.send_message(chat_id=chat_id, text="🔄 Testing first reminder (pre-course)...")
+            
+            # Get today's date for debugging
+            from datetime import datetime
+            import pytz
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            today = now.strftime('%Y-%m-%d')
+            
+            # Check how many users are eligible
+            users = await reminder_system.get_users_for_reminder(today)
+            await bot.send_message(chat_id=chat_id, text=f"📊 Found {len(users)} eligible users for {today}")
+            
             result = await reminder_system.send_daily_reminders()
             if result:
                 await bot.send_message(chat_id=chat_id, text="✅ First reminder test completed successfully!")
             else:
-                await bot.send_message(chat_id=chat_id, text="❌ First reminder test failed. Check logs.")
+                await bot.send_message(chat_id=chat_id, text="❌ First reminder test failed. No users found or error occurred.")
                 
         elif text == '/test_reminder_second':
             # Test second reminder (day course)
             await bot.send_message(chat_id=chat_id, text="🔄 Testing second reminder (day course)...")
+            
+            # Get today's date for debugging
+            from datetime import datetime
+            import pytz
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            today = now.strftime('%Y-%m-%d')
+            
+            # Check how many users are eligible
+            users = await reminder_system.get_users_for_day_reminder(today)
+            await bot.send_message(chat_id=chat_id, text=f"📊 Found {len(users)} eligible users for {today}")
+            
             result = await reminder_system.send_day_course_reminders()
             if result:
                 await bot.send_message(chat_id=chat_id, text="✅ Second reminder test completed successfully!")
             else:
-                await bot.send_message(chat_id=chat_id, text="❌ Second reminder test failed. Check logs.")
+                await bot.send_message(chat_id=chat_id, text="❌ Second reminder test failed. No users found or error occurred.")
                 
         elif text == '/test_reminder_both':
             # Test both reminders

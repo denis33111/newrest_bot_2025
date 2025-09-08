@@ -602,6 +602,10 @@ You can check in/out as needed throughout the day."""
             # Get users for today's courses (PRE_COURSE_REMINDER = today)
             users = await self.get_users_for_reminder(today)
             
+            if not users:
+                logger.info(f"No users found for reminders on {today}")
+                return False
+            
             # Send reminders to each user
             for user in users:
                 await self.send_pre_course_reminder(
@@ -629,6 +633,10 @@ You can check in/out as needed throughout the day."""
             
             # Get users for today's day course reminders
             users = await self.get_users_for_day_reminder(today)
+            
+            if not users:
+                logger.info(f"No users found for day course reminders on {today}")
+                return False
             
             # Send reminders to each user in order (1 read → 1 send)
             for user in users:
