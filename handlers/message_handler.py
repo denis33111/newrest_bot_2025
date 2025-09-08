@@ -33,9 +33,9 @@ async def handle_telegram_message(message):
         
         logger.info(f"Processing message from user {user_id} ({username}): {text}")
         
-        # Handle admin test commands first
+        # Handle admin test commands first (works in both private and admin group)
         if text.startswith('/test_reminder'):
-            await handle_reminder_test_command(text, user_id)
+            await handle_reminder_test_command(text, user_id, message)
             return
         
         # Handle custom date input from admin
@@ -245,59 +245,62 @@ async def handle_admin_evaluation_callback(data):
     except Exception as e:
         logger.error(f"Error handling admin evaluation callback: {e}")
 
-async def handle_reminder_test_command(text, user_id):
+async def handle_reminder_test_command(text, user_id, message):
     """Handle admin reminder test commands"""
     try:
         from handlers.reminder_system import ReminderSystem
         from services.telegram_bot import send_message
         import os
         
-        # Check if user is admin (you can modify this check as needed)
+        # Check if message is from admin group or if user is admin
         admin_group_id = os.getenv('ADMIN_GROUP_ID')
-        if str(user_id) != admin_group_id:
-            await send_message(user_id, "❌ This command is only available for admins.")
+        chat_id = message.get('chat', {}).get('id')
+        
+        # Allow if message is from admin group OR if user is in admin group
+        if str(chat_id) != admin_group_id:
+            await send_message(chat_id, "❌ This command is only available for admins.")
             return
         
         reminder_system = ReminderSystem()
         
         if text == '/test_reminder_first':
             # Test first reminder (pre-course)
-            await send_message(user_id, "🔄 Testing first reminder (pre-course)...")
+            await send_message(chat_id, "🔄 Testing first reminder (pre-course)...")
             result = await reminder_system.send_daily_reminders()
             if result:
-                await send_message(user_id, "✅ First reminder test completed successfully!")
+                await send_message(chat_id, "✅ First reminder test completed successfully!")
             else:
-                await send_message(user_id, "❌ First reminder test failed. Check logs.")
+                await send_message(chat_id, "❌ First reminder test failed. Check logs.")
                 
         elif text == '/test_reminder_second':
             # Test second reminder (day course)
-            await send_message(user_id, "🔄 Testing second reminder (day course)...")
+            await send_message(chat_id, "🔄 Testing second reminder (day course)...")
             result = await reminder_system.send_day_course_reminders()
             if result:
-                await send_message(user_id, "✅ Second reminder test completed successfully!")
+                await send_message(chat_id, "✅ Second reminder test completed successfully!")
             else:
-                await send_message(user_id, "❌ Second reminder test failed. Check logs.")
+                await send_message(chat_id, "❌ Second reminder test failed. Check logs.")
                 
         elif text == '/test_reminder_both':
             # Test both reminders
-            await send_message(user_id, "🔄 Testing both reminders...")
+            await send_message(chat_id, "🔄 Testing both reminders...")
             
             # Test first reminder
             first_result = await reminder_system.send_daily_reminders()
-            await send_message(user_id, f"First reminder: {'✅ Success' if first_result else '❌ Failed'}")
+            await send_message(chat_id, f"First reminder: {'✅ Success' if first_result else '❌ Failed'}")
             
             # Test second reminder
             second_result = await reminder_system.send_day_course_reminders()
-            await send_message(user_id, f"Second reminder: {'✅ Success' if second_result else '❌ Failed'}")
+            await send_message(chat_id, f"Second reminder: {'✅ Success' if second_result else '❌ Failed'}")
             
             if first_result and second_result:
-                await send_message(user_id, "✅ Both reminder tests completed successfully!")
+                await send_message(chat_id, "✅ Both reminder tests completed successfully!")
             else:
-                await send_message(user_id, "⚠️ Some reminder tests failed. Check logs.")
+                await send_message(chat_id, "⚠️ Some reminder tests failed. Check logs.")
                 
         elif text == '/test_reminder_status':
             # Check reminder status
-            await send_message(user_id, "🔄 Checking reminder status...")
+            await send_message(chat_id, "🔄 Checking reminder status...")
             
             from datetime import datetime
             import pytz
@@ -322,7 +325,7 @@ async def handle_reminder_test_command(text, user_id):
 
 **Current Time:** {now.strftime('%H:%M:%S')} (Greece)"""
             
-            await send_message(user_id, status_text)
+            await send_message(chat_id, status_text)
             
         elif text == '/test_reminder_help':
             # Show help
@@ -336,14 +339,14 @@ async def handle_reminder_test_command(text, user_id):
 
 **Note**: These commands will send actual reminders to users who are eligible today."""
             
-            await send_message(user_id, help_text)
+            await send_message(chat_id, help_text)
             
         else:
-            await send_message(user_id, "❌ Unknown test command. Use `/test_reminder_help` for available commands.")
+            await send_message(chat_id, "❌ Unknown test command. Use `/test_reminder_help` for available commands.")
             
     except Exception as e:
         logger.error(f"Error handling reminder test command: {e}")
-        await send_message(user_id, f"❌ Error: {str(e)}")
+        await send_message(chat_id, f"❌ Error: {str(e)}")
 
 async def handle_reminder_callback(data):
     """Handle reminder callback queries"""
