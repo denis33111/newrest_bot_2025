@@ -383,11 +383,21 @@ We wish you all the best in your future endeavors!"""
             
             # Debug: Log what we found in the data
             logger.info(f"Total users in registration: {len(user_id_col) - 1}")
+            logger.info(f"Looking for PRE_COURSE_REMINDER = '{target_date}' (type: {type(target_date)})")
             for i in range(1, min(6, len(user_id_col))):  # Log first 5 users for debugging
                 if i < len(pre_course_reminder_col):
                     user_id_debug = user_id_col[i]
+                    pre_course_reminder_debug = pre_course_reminder_col[i]
+                    first_reminder_sent_debug = first_reminder_sent_col[i] if i < len(first_reminder_sent_col) else 'N/A'
                     user_status_debug = user_status_map.get(user_id_debug, 'NOT_IN_WORKERS')
-                    logger.info(f"User {i}: ID={user_id_debug}, PRE_COURSE_REMINDER={pre_course_reminder_col[i]}, FIRST_REMINDER_SENT={first_reminder_sent_col[i] if i < len(first_reminder_sent_col) else 'N/A'}, WORKERS_STATUS={user_status_debug}")
+                    
+                    # Check if this user would match
+                    pre_course_reminder_str = str(pre_course_reminder_debug) if pre_course_reminder_debug else ""
+                    target_date_str = str(target_date)
+                    matches = pre_course_reminder_str == target_date_str
+                    has_reminder_sent = bool(first_reminder_sent_debug)
+                    
+                    logger.info(f"User {i}: ID={user_id_debug}, PRE_COURSE_REMINDER='{pre_course_reminder_debug}' (str: '{pre_course_reminder_str}'), FIRST_REMINDER_SENT='{first_reminder_sent_debug}' (bool: {has_reminder_sent}), MATCHES={matches}, WORKERS_STATUS={user_status_debug}")
             
             return users_to_remind
             
