@@ -6,6 +6,7 @@ Manages check-in/out system for working users
 
 import os
 import logging
+import asyncio
 from datetime import datetime
 import pytz
 from telegram import Bot, ReplyKeyboardMarkup, KeyboardButton
@@ -161,7 +162,6 @@ class WorkingConsole:
             # User completed today's work
             check_in_time = status.get('check_in_time', '')
             check_out_time = status.get('check_out_time', '')
-            work_hours = status.get('today_hours', '0h 0m')
             
             if '-' in check_in_time:
                 # Format: "HH:MM-HH:MM"
@@ -170,19 +170,14 @@ class WorkingConsole:
 
 {get_text(language, 'already_registered')}
 
-**{get_text(language, 'work_completed_today')}**
 **{get_text(language, 'check_in_time')}** {check_in}
 **{get_text(language, 'check_out_time')}** {check_out}
-**{get_text(language, 'total_hours')}** {work_hours}
 
 {get_text(language, 'use_buttons_below')}"""
             else:
                 message = f"""✅ **{get_text(language, 'welcome_back')}, {user_name}!**
 
 {get_text(language, 'already_registered')}
-
-**{get_text(language, 'work_completed_today')}**
-**{get_text(language, 'total_hours')}** {work_hours}
 
 {get_text(language, 'use_buttons_below')}"""
                 
@@ -238,21 +233,17 @@ class WorkingConsole:
             # Check if already completed today
             elif current_status == 'COMPLETE':
                 check_in_time = status_data.get('check_in_time', '')
-                work_hours = status_data.get('today_hours', '0h 0m')
                 
                 if '-' in check_in_time:
                     check_in, check_out = check_in_time.split('-')
-                    message = f"""✅ **{get_text(language, 'work_completed_today')}**
+                    message = f"""✅ **{get_text(language, 'already_checked_in')}**
 
 **{get_text(language, 'check_in_time')}** {check_in}
 **{get_text(language, 'check_out_time')}** {check_out}
-**{get_text(language, 'total_hours')}** {work_hours}
 
 **{get_text(language, 'next_action')}** {get_text(language, 'check_in_tomorrow')}"""
                 else:
-                    message = f"""✅ **{get_text(language, 'work_completed_today')}**
-
-**{get_text(language, 'total_hours')}** {work_hours}
+                    message = f"""✅ **{get_text(language, 'already_checked_in')}**
 
 **{get_text(language, 'next_action')}** {get_text(language, 'check_in_tomorrow')}"""
                 
@@ -324,9 +315,7 @@ class WorkingConsole:
             
             message = f"""📍 **{get_text(language, 'check_in_required')}**
 
-**{get_text(language, 'tap_share_location')}**
-
-⚠️ **{get_text(language, 'location_verification_note')}**"""
+**{get_text(language, 'tap_share_location')}**"""
             
             await self.bot.send_message(
                 chat_id=self.user_id,
@@ -368,9 +357,7 @@ class WorkingConsole:
             
             message = f"""📍 **{get_text(language, 'check_out_required')}**
 
-**{get_text(language, 'tap_share_location')}**
-
-⚠️ **{get_text(language, 'location_verification_note')}**"""
+**{get_text(language, 'tap_share_location')}**"""
             
             await self.bot.send_message(
                 chat_id=self.user_id,
@@ -393,6 +380,30 @@ class WorkingConsole:
                 # No pending action, ignore location
                 return
             
+            # Check if already processing to prevent double-clicks
+            if pending_action.get('processing', False):
+                return
+            
+            # Mark as processing
+            pending_actions[self.user_id]['processing'] = True
+            
+            # Send immediate "processing" message to prevent double-clicks
+            status = await get_user_working_status(self.user_id)
+            language = status.get('language', 'gr')
+            
+            processing_message = f"""⏳ **{get_text(language, 'processing')}**
+
+{get_text(language, 'please_wait')}"""
+            
+            await self.bot.send_message(
+                chat_id=self.user_id,
+                text=processing_message,
+                parse_mode='Markdown'
+            )
+            
+            # Small delay to show processing message and prevent rapid double-clicks
+            await asyncio.sleep(1)
+            
             # Validate location
             is_valid = validate_work_location(location)
             
@@ -408,9 +419,7 @@ class WorkingConsole:
 **{get_text(language, 'location_validation_instructions')}**
 • {get_text(language, 'make_sure_at_work')}
 • {get_text(language, 'check_gps_signal')}
-• {get_text(language, 'try_again')}
-
-{get_text(language, 'location_verification_note')}"""
+• {get_text(language, 'try_again')}"""
                 
                 await self.bot.send_message(
                     chat_id=self.user_id,
@@ -515,7 +524,6 @@ class WorkingConsole:
 
 **{get_text(language, 'check_in_time')}** {check_in_time}
 **{get_text(language, 'check_out_time')}** {current_time}
-**{get_text(language, 'total_hours')}** {work_hours}
 **{get_text(language, 'location')}** {get_text(language, 'verified')} ✅
 
 {get_text(language, 'great_work_today')}"""

@@ -54,7 +54,6 @@ REGISTRATION_QUESTIONS = {
         'make_sure_at_work': 'Make sure you are at the work location',
         'check_gps_signal': 'Check your GPS signal',
         'try_sharing_again': 'Try sharing location again',
-        'location_verification_note': 'Location verification ensures accurate attendance tracking.',
         'already_checked_in_message': "You're already checked in and working.",
         'use_check_out': 'Use "Check Out" when you finish your work session.',
         'not_checked_in': 'Not Checked In',
@@ -65,7 +64,6 @@ REGISTRATION_QUESTIONS = {
         'time': 'Time:',
         'check_in': 'Check In',
         'check_out': 'Check Out',
-        'total_hours': 'Total Hours:',
         'great_work_today': 'Great work today!',
         'contact': 'Contact',
         'contact_message': 'Crew Assistant: Coming Soon!',
@@ -79,7 +77,6 @@ REGISTRATION_QUESTIONS = {
         'contact_support': 'Contact support if the problem continues',
         'working_on_fix': "We're working to fix this issue.",
         # New smart console translations
-        'work_completed_today': 'Your work is completed today',
         'already_checked_in': 'You have already checked in today',
         'next_action': 'Next action',
         'check_out_when_done': 'Press Check Out when you finish your shift',
@@ -91,7 +88,9 @@ REGISTRATION_QUESTIONS = {
         'verified': 'Verified',
         'working': 'Working',
         'work_session_started': 'Your work session has started!',
-        'check_out_successful': 'Check-out successful'
+        'check_out_successful': 'Check-out successful',
+        'processing': 'Processing...',
+        'please_wait': 'Please wait while we verify your location.'
     },
     'gr': {
         'language_selection': 'Παρακαλώ επιλέξτε γλώσσα',
@@ -135,7 +134,6 @@ REGISTRATION_QUESTIONS = {
         'make_sure_at_work': 'Βεβαιωθείτε ότι είστε στην τοποθεσία εργασίας',
         'check_gps_signal': 'Ελέγξτε το σήμα GPS σας',
         'try_sharing_again': 'Δοκιμάστε να μοιραστείτε την τοποθεσία ξανά',
-        'location_verification_note': 'Η επαλήθευση τοποθεσίας διασφαλίζει ακριβή παρακολούθηση παρουσίας.',
         'already_checked_in_message': 'Είστε ήδη εγγεγραμμένος και εργάζεστε.',
         'use_check_out': 'Χρησιμοποιήστε "Αποχώρηση" όταν τελειώσετε τη συνεδρία εργασίας σας.',
         'not_checked_in': 'Δεν Είστε Εγγεγραμμένος',
@@ -146,7 +144,6 @@ REGISTRATION_QUESTIONS = {
         'time': 'Ώρα:',
         'check_in': 'Εγγραφή',
         'check_out': 'Αποχώρηση',
-        'total_hours': 'Συνολικές Ώρες:',
         'great_work_today': 'Καλή δουλειά σήμερα!',
         'contact': 'Επικοινωνία',
         'contact_message': 'Βοηθός Ομάδας: Έρχεται σύντομα!',
@@ -160,7 +157,6 @@ REGISTRATION_QUESTIONS = {
         'contact_support': 'Επικοινωνήστε με την υποστήριξη αν το πρόβλημα συνεχίζεται',
         'working_on_fix': 'Εργαζόμαστε για να διορθώσουμε αυτό το πρόβλημα.',
         # New smart console translations
-        'work_completed_today': 'Η εργασία σας ολοκληρώθηκε σήμερα',
         'already_checked_in': 'Έχετε ήδη κάνει εγγραφή σήμερα',
         'next_action': 'Επόμενη ενέργεια',
         'check_out_when_done': 'Πατήστε Check Out όταν τελειώσετε τη βάρδια',
@@ -172,7 +168,9 @@ REGISTRATION_QUESTIONS = {
         'verified': 'Επαληθευμένη',
         'working': 'Εργασία',
         'work_session_started': 'Η εργασιακή σας συνεδρία ξεκίνησε!',
-        'check_out_successful': 'Αποχώρηση επιτυχής'
+        'check_out_successful': 'Αποχώρηση επιτυχής',
+        'processing': 'Επεξεργασία...',
+        'please_wait': 'Παρακαλώ περιμένετε ενώ επαληθεύουμε την τοποθεσία σας.'
     }
 }
 
