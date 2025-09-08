@@ -37,17 +37,17 @@ async def handle_telegram_message(message):
         # Handle admin group commands first
         admin_group_id = os.getenv('ADMIN_GROUP_ID')
         if str(message.get('chat', {}).get('id')) == admin_group_id:
-            # Handle admin simulation commands
-            if text == '/simulate_reminders':
+            # Handle admin simulation commands (check for both with and without bot mention)
+            if text == '/simulate_reminders' or text.endswith('/simulate_reminders'):
                 await handle_simulate_reminders_command(message)
                 return
-            elif text == '/simulate_tomorrow':
+            elif text == '/simulate_tomorrow' or text.endswith('/simulate_tomorrow'):
                 await handle_simulate_tomorrow_command(message)
                 return
-            elif text == '/simulate_today':
+            elif text == '/simulate_today' or text.endswith('/simulate_today'):
                 await handle_simulate_today_command(message)
                 return
-            elif text == '/reminder_help':
+            elif text == '/reminder_help' or text.endswith('/reminder_help'):
                 await handle_reminder_help_command(message)
                 return
             
