@@ -32,6 +32,11 @@ async def handle_telegram_message(message):
         
         logger.info(f"Processing message from user {user_id} ({username}): {text}")
         
+        # Handle admin test commands first
+        if text.startswith('/test_reminder'):
+            await handle_reminder_test_command(text, user_id)
+            return
+        
         # Check if user is in active registration
         if user_id in active_registrations:
             await handle_registration_message(user_id, text)
@@ -211,6 +216,106 @@ async def handle_admin_evaluation_callback(data):
         
     except Exception as e:
         logger.error(f"Error handling admin evaluation callback: {e}")
+
+async def handle_reminder_test_command(text, user_id):
+    """Handle admin reminder test commands"""
+    try:
+        from handlers.reminder_system import ReminderSystem
+        from services.telegram_bot import send_message
+        import os
+        
+        # Check if user is admin (you can modify this check as needed)
+        admin_group_id = os.getenv('ADMIN_GROUP_ID')
+        if str(user_id) != admin_group_id:
+            await send_message(user_id, "❌ This command is only available for admins.")
+            return
+        
+        reminder_system = ReminderSystem()
+        
+        if text == '/test_reminder_first':
+            # Test first reminder (pre-course)
+            await send_message(user_id, "🔄 Testing first reminder (pre-course)...")
+            result = await reminder_system.send_daily_reminders()
+            if result:
+                await send_message(user_id, "✅ First reminder test completed successfully!")
+            else:
+                await send_message(user_id, "❌ First reminder test failed. Check logs.")
+                
+        elif text == '/test_reminder_second':
+            # Test second reminder (day course)
+            await send_message(user_id, "🔄 Testing second reminder (day course)...")
+            result = await reminder_system.send_day_course_reminders()
+            if result:
+                await send_message(user_id, "✅ Second reminder test completed successfully!")
+            else:
+                await send_message(user_id, "❌ Second reminder test failed. Check logs.")
+                
+        elif text == '/test_reminder_both':
+            # Test both reminders
+            await send_message(user_id, "🔄 Testing both reminders...")
+            
+            # Test first reminder
+            first_result = await reminder_system.send_daily_reminders()
+            await send_message(user_id, f"First reminder: {'✅ Success' if first_result else '❌ Failed'}")
+            
+            # Test second reminder
+            second_result = await reminder_system.send_day_course_reminders()
+            await send_message(user_id, f"Second reminder: {'✅ Success' if second_result else '❌ Failed'}")
+            
+            if first_result and second_result:
+                await send_message(user_id, "✅ Both reminder tests completed successfully!")
+            else:
+                await send_message(user_id, "⚠️ Some reminder tests failed. Check logs.")
+                
+        elif text == '/test_reminder_status':
+            # Check reminder status
+            await send_message(user_id, "🔄 Checking reminder status...")
+            
+            from datetime import datetime
+            import pytz
+            
+            greece_tz = pytz.timezone('Europe/Athens')
+            now = datetime.now(greece_tz)
+            today = now.strftime('%Y-%m-%d')
+            
+            # Get users for first reminder
+            first_users = await reminder_system.get_users_for_reminder(today)
+            second_users = await reminder_system.get_users_for_day_reminder(today)
+            
+            status_text = f"""📊 **Reminder Status for {today}**
+
+**First Reminder (Pre-Course):**
+- Eligible users: {len(first_users)}
+- Users: {[user['user_id'] for user in first_users]}
+
+**Second Reminder (Day Course):**
+- Eligible users: {len(second_users)}
+- Users: {[user['user_id'] for user in second_users]}
+
+**Current Time:** {now.strftime('%H:%M:%S')} (Greece)"""
+            
+            await send_message(user_id, status_text)
+            
+        elif text == '/test_reminder_help':
+            # Show help
+            help_text = """🔧 **Reminder Test Commands**
+
+`/test_reminder_first` - Test first reminder (pre-course)
+`/test_reminder_second` - Test second reminder (day course)  
+`/test_reminder_both` - Test both reminders
+`/test_reminder_status` - Check reminder status for today
+`/test_reminder_help` - Show this help
+
+**Note**: These commands will send actual reminders to users who are eligible today."""
+            
+            await send_message(user_id, help_text)
+            
+        else:
+            await send_message(user_id, "❌ Unknown test command. Use `/test_reminder_help` for available commands.")
+            
+    except Exception as e:
+        logger.error(f"Error handling reminder test command: {e}")
+        await send_message(user_id, f"❌ Error: {str(e)}")
 
 async def handle_reminder_callback(data):
     """Handle reminder callback queries"""

@@ -48,6 +48,9 @@ Will you attend?"""
                 reply_markup=reply_markup
             )
             
+            # Mark first reminder as sent
+            await self._mark_reminder_sent(user_id, 'FIRST_REMINDER_SENT')
+            
             logger.info(f"Pre-course reminder sent to user {user_id} for course on {course_date}")
             return True
             
@@ -93,6 +96,9 @@ We look forward to meeting you!"""
             
             # Update WORKERS sheet status
             await self._update_worker_status(user_id, 'APPROVED_COURSE_DATE_SET')
+            
+            # Mark first reminder response
+            await self._mark_reminder_response(user_id, 'YES')
             
             # Notify admin group
             await self._notify_admin_attendance(user_id, True, language)
@@ -189,6 +195,9 @@ We wish you all the best in your future endeavors!"""
                 text=message,
                 parse_mode='Markdown'
             )
+            
+            # Mark first reminder response
+            await self._mark_reminder_response(user_id, 'NO')
             
             # Notify admin group
             await self._notify_admin_not_interested(user_id, language)
@@ -316,16 +325,30 @@ We wish you all the best in your future endeavors!"""
                 return []
             
             registration_sheet = sheets_data['sheets']['registration']
+            workers_sheet = sheets_data['sheets']['workers']
             
             # Get all data
-            all_data = registration_sheet.get_all_records()
+            registration_data = registration_sheet.get_all_records()
+            workers_data = workers_sheet.get_all_records()
+            
+            # Create a mapping of user_id to status
+            user_status_map = {}
+            for worker in workers_data:
+                user_status_map[worker.get('ID')] = worker.get('STATUS')
             
             # Find users with PRE_COURSE_REMINDER matching target_date
+            # AND who haven't been sent a reminder yet
+            # AND who have valid status (not REJECTED)
             users_to_remind = []
-            for row in all_data:
-                if row.get('PRE_COURSE_REMINDER') == target_date:
+            for row in registration_data:
+                user_id = row.get('user id')
+                user_status = user_status_map.get(user_id)
+                
+                if (row.get('PRE_COURSE_REMINDER') == target_date and
+                    not row.get('FIRST_REMINDER_SENT') and
+                    user_status not in ['REJECTED', 'CANCELLED']):
                     users_to_remind.append({
-                        'user_id': row.get('user id'),
+                        'user_id': user_id,
                         'course_date': row.get('COURSE_DATE'),
                         'language': row.get('LANGUAGE', 'gr')
                     })
@@ -356,12 +379,17 @@ We wish you all the best in your future endeavors!"""
             for worker in workers_data:
                 user_status_map[worker.get('ID')] = worker.get('STATUS')
             
-            # Find users with DAY_COURSE_REMINDER matching target_date and status APPROVED_COURSE_DATE_SET
+            # Find users with DAY_COURSE_REMINDER matching target_date 
+            # AND status APPROVED_COURSE_DATE_SET
+            # AND who responded YES to first reminder
+            # AND who haven't been sent second reminder yet
             users_to_remind = []
             for row in registration_data:
                 user_id = row.get('user id')
                 if (row.get('DAY_COURSE_REMINDER') == target_date and 
-                    user_status_map.get(user_id) == 'APPROVED_COURSE_DATE_SET'):
+                    user_status_map.get(user_id) == 'APPROVED_COURSE_DATE_SET' and
+                    row.get('FIRST_REMINDER_RESPONSE') == 'YES' and
+                    not row.get('SECOND_REMINDER_SENT')):
                     users_to_remind.append({
                         'user_id': user_id,
                         'course_date': row.get('COURSE_DATE'),
@@ -401,6 +429,9 @@ Please check in when you arrive at 9:50-15:00."""
                 reply_markup=reply_markup
             )
             
+            # Mark reminder as sent in Google Sheets
+            await self._mark_reminder_sent(user_id, 'SECOND_REMINDER_SENT')
+            
             logger.info(f"Day course reminder sent to user {user_id} for course on {course_date}")
             return True
             
@@ -409,10 +440,30 @@ Please check in when you arrive at 9:50-15:00."""
             return False
     
     async def handle_day_checkin(self, user_id, language='gr'):
-        """Handle day course check-in"""
+        """Handle day course check-in with location validation"""
         try:
             bot = Bot(token=self.bot_token)
             
+            # Add location validation
+            from services.location_service import LocationService
+            location_service = LocationService()
+            
+            # Check if user has already tried location validation
+            retry_count = await self._get_retry_count(user_id)
+            
+            if retry_count < 2:  # Allow 2 retries
+                if not await location_service.validate_location(user_id):
+                    # Location validation failed - send retry message
+                    await self._send_location_retry_message(user_id, language, retry_count + 1)
+                    await self._increment_retry_count(user_id)
+                    return False
+            
+            # If retry count exceeded, send contact message
+            if retry_count >= 2:
+                await self._send_contact_message(user_id, language)
+                return False
+            
+            # Location validation passed - proceed with check-in
             if language == 'en':
                 message = """✅ Check-in successful!
 
@@ -440,6 +491,9 @@ You can check in/out as needed throughout the day."""
             
             # Send working console
             await self._send_working_console(user_id)
+            
+            # Reset retry count on successful check-in
+            await self._reset_retry_count(user_id)
             
             logger.info(f"Day check-in completed for user {user_id}")
             return True
@@ -576,7 +630,7 @@ You can check in/out as needed throughout the day."""
             # Get users for today's day course reminders
             users = await self.get_users_for_day_reminder(today)
             
-            # Send reminders to each user
+            # Send reminders to each user in order (1 read → 1 send)
             for user in users:
                 await self.send_day_course_reminder(
                     user['user_id'], 
@@ -591,4 +645,200 @@ You can check in/out as needed throughout the day."""
             
         except Exception as e:
             logger.error(f"Error sending day course reminders: {e}")
+            return False
+    
+    async def _mark_reminder_sent(self, user_id, reminder_type):
+        """Mark reminder as sent in Google Sheets"""
+        try:
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return False
+            
+            registration_sheet = sheets_data['sheets']['registration']
+            
+            # Find user row
+            all_data = registration_sheet.get_all_records()
+            user_row = None
+            
+            for i, row in enumerate(all_data, start=2):  # Skip header row
+                if str(row.get('user id')) == str(user_id):
+                    user_row = i
+                    break
+            
+            if user_row:
+                # Mark reminder as sent
+                if reminder_type == 'FIRST_REMINDER_SENT':
+                    registration_sheet.update_cell(user_row, 21, 'SENT')  # Column U
+                elif reminder_type == 'SECOND_REMINDER_SENT':
+                    registration_sheet.update_cell(user_row, 22, 'SENT')  # Column V
+                
+                logger.info(f"Marked {reminder_type} as sent for user {user_id}")
+                return True
+            else:
+                logger.error(f"User {user_id} not found in REGISTRATION sheet")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error marking reminder as sent: {e}")
+            return False
+    
+    async def _mark_reminder_response(self, user_id, response):
+        """Mark reminder response in Google Sheets"""
+        try:
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return False
+            
+            registration_sheet = sheets_data['sheets']['registration']
+            
+            # Find user row
+            all_data = registration_sheet.get_all_records()
+            user_row = None
+            
+            for i, row in enumerate(all_data, start=2):  # Skip header row
+                if str(row.get('user id')) == str(user_id):
+                    user_row = i
+                    break
+            
+            if user_row:
+                # Mark reminder response (Column W for FIRST_REMINDER_RESPONSE)
+                registration_sheet.update_cell(user_row, 23, response)  # Column W
+                
+                logger.info(f"Marked first reminder response as {response} for user {user_id}")
+                return True
+            else:
+                logger.error(f"User {user_id} not found in REGISTRATION sheet")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error marking reminder response: {e}")
+            return False
+    
+    async def _get_retry_count(self, user_id):
+        """Get retry count for user"""
+        try:
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return 0
+            
+            registration_sheet = sheets_data['sheets']['registration']
+            all_data = registration_sheet.get_all_records()
+            
+            for row in all_data:
+                if str(row.get('user id')) == str(user_id):
+                    return int(row.get('RETRY_COUNT', 0))
+            
+            return 0
+            
+        except Exception as e:
+            logger.error(f"Error getting retry count: {e}")
+            return 0
+    
+    async def _increment_retry_count(self, user_id):
+        """Increment retry count for user"""
+        try:
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return False
+            
+            registration_sheet = sheets_data['sheets']['registration']
+            all_data = registration_sheet.get_all_records()
+            
+            for i, row in enumerate(all_data, start=2):
+                if str(row.get('user id')) == str(user_id):
+                    current_count = int(row.get('RETRY_COUNT', 0))
+                    registration_sheet.update_cell(i, 22, current_count + 1)  # Column V
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error incrementing retry count: {e}")
+            return False
+    
+    async def _reset_retry_count(self, user_id):
+        """Reset retry count for user"""
+        try:
+            sheets_data = init_google_sheets()
+            if sheets_data['status'] != 'success':
+                return False
+            
+            registration_sheet = sheets_data['sheets']['registration']
+            all_data = registration_sheet.get_all_records()
+            
+            for i, row in enumerate(all_data, start=2):
+                if str(row.get('user id')) == str(user_id):
+                    registration_sheet.update_cell(i, 22, 0)  # Column V
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error resetting retry count: {e}")
+            return False
+    
+    async def _send_location_retry_message(self, user_id, language, retry_count):
+        """Send location retry message"""
+        try:
+            bot = Bot(token=self.bot_token)
+            
+            if language == 'en':
+                message = f"""❌ Location validation failed (Attempt {retry_count}/2)
+
+Please make sure you are at the work location and try again."""
+            else:  # Greek
+                message = f"""❌ Η επαλήθευση τοποθεσίας απέτυχε (Προσπάθεια {retry_count}/2)
+
+Παρακαλούμε βεβαιωθείτε ότι βρίσκεστε στην τοποθεσία εργασίας και δοκιμάστε ξανά."""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔄 Try Again / Δοκιμάστε Ξανά", callback_data=f"day_checkin_{user_id}")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await bot.send_message(
+                chat_id=user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+            logger.info(f"Location retry message sent to user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending location retry message: {e}")
+            return False
+    
+    async def _send_contact_message(self, user_id, language):
+        """Send contact message for help"""
+        try:
+            bot = Bot(token=self.bot_token)
+            
+            if language == 'en':
+                message = """❌ Location validation failed multiple times.
+
+Please contact support for assistance."""
+            else:  # Greek
+                message = """❌ Η επαλήθευση τοποθεσίας απέτυχε πολλές φορές.
+
+Παρακαλούμε επικοινωνήστε με την υποστήριξη για βοήθεια."""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Contact Support / Επικοινωνία", callback_data=f"contact_support_{user_id}")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await bot.send_message(
+                chat_id=user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+            logger.info(f"Contact message sent to user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending contact message: {e}")
             return False

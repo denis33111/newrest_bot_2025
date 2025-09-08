@@ -39,6 +39,10 @@ This document describes the structure and organization of the Google Sheets used
 | R | COURSE_DATE | Date | Course enrollment date | Light Orange |
 | S | PRE_COURSE_REMINDER | Text | Pre-course notification status | Light Orange |
 | T | DAY_COURSE_REMINDER | Text | Day-of-course reminder status | Light Orange |
+| U | FIRST_REMINDER_SENT | Text | First reminder sent status | Light Orange |
+| V | SECOND_REMINDER_SENT | Text | Second reminder sent status | Light Orange |
+| W | FIRST_REMINDER_RESPONSE | Text | First reminder response (YES/NO) | Light Orange |
+| X | RETRY_COUNT | Number | Location validation retry count | Light Yellow |
 
 #### Section Headers:
 - **A1:K1**: "PERSONAL DATA" (merged)

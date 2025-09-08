@@ -25,23 +25,25 @@ class ReminderScheduler:
         
         while self.running:
             try:
-                # Check if it's 10am Greece time
+                # Check current time in Greece timezone
                 now = datetime.now(self.greece_tz)
                 current_time = now.time()
-                target_time = time(10, 0)  # 10:00 AM
                 
                 # If it's 9:50am, send day course reminders
                 if current_time.hour == 9 and current_time.minute == 50:
                     logger.info("It's 9:50am - sending day course reminders")
                     await self.reminder_system.send_day_course_reminders()
+                    
+                    # Wait until 10am same day (10 minutes)
+                    await asyncio.sleep(10 * 60)
                 
-                # If it's 10am, send pre-course reminders and wait 24 hours
-                elif current_time.hour == target_time.hour and current_time.minute == target_time.minute:
+                # If it's 10am, send pre-course reminders
+                elif current_time.hour == 10 and current_time.minute == 0:
                     logger.info("It's 10am - sending pre-course reminders")
                     await self.reminder_system.send_daily_reminders()
                     
-                    # Wait 24 hours (minus 1 minute to avoid missing the next day)
-                    await asyncio.sleep(24 * 60 * 60 - 60)
+                    # Wait until 9:50am next day (23 hours 50 minutes)
+                    await asyncio.sleep(23 * 60 * 60 + 50 * 60)
                 else:
                     # Wait 1 minute before checking again
                     await asyncio.sleep(60)

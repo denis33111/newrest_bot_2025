@@ -7,6 +7,7 @@ import os
 import asyncio
 import logging
 from flask import Flask, jsonify, request, send_file
+from telegram import Bot
 from services.google_sheets import init_google_sheets
 from services.telegram_bot import setup_webhook
 from handlers.message_handler import handle_telegram_message, handle_callback_query
@@ -26,6 +27,9 @@ GOOGLE_SHEETS_ID = os.getenv('GOOGLE_SHEETS_ID')
 GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv('GOOGLE_SERVICE_ACCOUNT_EMAIL')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
+# Initialize bot
+bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
+
 # Health check endpoint
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -39,14 +43,16 @@ def health_check():
 
 # Telegram bot test endpoint
 @app.route('/test/telegram', methods=['GET'])
-async def test_telegram():
+def test_telegram():
     """Test Telegram bot connection"""
     try:
         if not bot:
             return jsonify({'status': 'error', 'message': 'Bot not initialized'})
         
         # Get bot info
-        bot_info = await bot.get_me()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        bot_info = loop.run_until_complete(bot.get_me())
         
         return jsonify({
             'status': 'success',
@@ -98,7 +104,7 @@ def test_sheets():
 
 # Complete system test
 @app.route('/test/all', methods=['GET'])
-async def test_all():
+def test_all():
     """Test all connections"""
     results = {
         'health': 'healthy',
@@ -110,7 +116,9 @@ async def test_all():
     # Test Telegram
     try:
         if bot:
-            bot_info = await bot.get_me()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            bot_info = loop.run_until_complete(bot.get_me())
             results['telegram'] = {'status': 'success', 'username': bot_info.username}
         else:
             results['telegram'] = {'status': 'error', 'message': 'Bot not initialized'}
