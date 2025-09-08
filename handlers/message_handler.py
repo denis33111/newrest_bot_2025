@@ -5,6 +5,7 @@ Handles incoming Telegram messages and routes to appropriate flows
 """
 
 import logging
+import os
 from services.google_sheets import check_user_status
 from services.telegram_bot import send_working_console, send_error_message
 from handlers.registration_flow import RegistrationFlow
@@ -38,6 +39,16 @@ async def handle_telegram_message(message):
             return
         
         # Handle custom date input from admin
+        # Check if message is from admin group and if any admin evaluation is waiting for custom date
+        admin_group_id = os.getenv('ADMIN_GROUP_ID')
+        if str(message.get('chat', {}).get('id')) == admin_group_id:
+            # Message is from admin group, check if any evaluation is waiting for custom date
+            for eval_user_id, admin_eval in admin_evaluation_instances.items():
+                if admin_eval.waiting_for_custom_date:
+                    await admin_eval.handle_custom_date_input(text, admin_evaluation_instances)
+                    return
+        
+        # Also check if the specific user is waiting for custom date
         if user_id in admin_evaluation_instances:
             admin_eval = admin_evaluation_instances[user_id]
             if admin_eval.waiting_for_custom_date:
