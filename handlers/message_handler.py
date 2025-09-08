@@ -249,58 +249,61 @@ async def handle_reminder_test_command(text, user_id, message):
     """Handle admin reminder test commands"""
     try:
         from handlers.reminder_system import ReminderSystem
-        from services.telegram_bot import send_message
+        from telegram import Bot
         import os
         
         # Check if message is from admin group or if user is admin
         admin_group_id = os.getenv('ADMIN_GROUP_ID')
         chat_id = message.get('chat', {}).get('id')
         
+        # Create bot instance
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        
         # Allow if message is from admin group OR if user is in admin group
         if str(chat_id) != admin_group_id:
-            await send_message(chat_id, "❌ This command is only available for admins.")
+            await bot.send_message(chat_id=chat_id, text="❌ This command is only available for admins.")
             return
         
         reminder_system = ReminderSystem()
         
         if text == '/test_reminder_first':
             # Test first reminder (pre-course)
-            await send_message(chat_id, "🔄 Testing first reminder (pre-course)...")
+            await bot.send_message(chat_id=chat_id, text="🔄 Testing first reminder (pre-course)...")
             result = await reminder_system.send_daily_reminders()
             if result:
-                await send_message(chat_id, "✅ First reminder test completed successfully!")
+                await bot.send_message(chat_id=chat_id, text="✅ First reminder test completed successfully!")
             else:
-                await send_message(chat_id, "❌ First reminder test failed. Check logs.")
+                await bot.send_message(chat_id=chat_id, text="❌ First reminder test failed. Check logs.")
                 
         elif text == '/test_reminder_second':
             # Test second reminder (day course)
-            await send_message(chat_id, "🔄 Testing second reminder (day course)...")
+            await bot.send_message(chat_id=chat_id, text="🔄 Testing second reminder (day course)...")
             result = await reminder_system.send_day_course_reminders()
             if result:
-                await send_message(chat_id, "✅ Second reminder test completed successfully!")
+                await bot.send_message(chat_id=chat_id, text="✅ Second reminder test completed successfully!")
             else:
-                await send_message(chat_id, "❌ Second reminder test failed. Check logs.")
+                await bot.send_message(chat_id=chat_id, text="❌ Second reminder test failed. Check logs.")
                 
         elif text == '/test_reminder_both':
             # Test both reminders
-            await send_message(chat_id, "🔄 Testing both reminders...")
+            await bot.send_message(chat_id=chat_id, text="🔄 Testing both reminders...")
             
             # Test first reminder
             first_result = await reminder_system.send_daily_reminders()
-            await send_message(chat_id, f"First reminder: {'✅ Success' if first_result else '❌ Failed'}")
+            await bot.send_message(chat_id=chat_id, text=f"First reminder: {'✅ Success' if first_result else '❌ Failed'}")
             
             # Test second reminder
             second_result = await reminder_system.send_day_course_reminders()
-            await send_message(chat_id, f"Second reminder: {'✅ Success' if second_result else '❌ Failed'}")
+            await bot.send_message(chat_id=chat_id, text=f"Second reminder: {'✅ Success' if second_result else '❌ Failed'}")
             
             if first_result and second_result:
-                await send_message(chat_id, "✅ Both reminder tests completed successfully!")
+                await bot.send_message(chat_id=chat_id, text="✅ Both reminder tests completed successfully!")
             else:
-                await send_message(chat_id, "⚠️ Some reminder tests failed. Check logs.")
+                await bot.send_message(chat_id=chat_id, text="⚠️ Some reminder tests failed. Check logs.")
                 
         elif text == '/test_reminder_status':
             # Check reminder status
-            await send_message(chat_id, "🔄 Checking reminder status...")
+            await bot.send_message(chat_id=chat_id, text="🔄 Checking reminder status...")
             
             from datetime import datetime
             import pytz
@@ -325,7 +328,7 @@ async def handle_reminder_test_command(text, user_id, message):
 
 **Current Time:** {now.strftime('%H:%M:%S')} (Greece)"""
             
-            await send_message(chat_id, status_text)
+            await bot.send_message(chat_id=chat_id, text=status_text)
             
         elif text == '/test_reminder_help':
             # Show help
@@ -339,14 +342,14 @@ async def handle_reminder_test_command(text, user_id, message):
 
 **Note**: These commands will send actual reminders to users who are eligible today."""
             
-            await send_message(chat_id, help_text)
+            await bot.send_message(chat_id=chat_id, text=help_text)
             
         else:
-            await send_message(chat_id, "❌ Unknown test command. Use `/test_reminder_help` for available commands.")
+            await bot.send_message(chat_id=chat_id, text="❌ Unknown test command. Use `/test_reminder_help` for available commands.")
             
     except Exception as e:
         logger.error(f"Error handling reminder test command: {e}")
-        await send_message(chat_id, f"❌ Error: {str(e)}")
+        await bot.send_message(chat_id=chat_id, text=f"❌ Error: {str(e)}")
 
 async def handle_reminder_callback(data):
     """Handle reminder callback queries"""
