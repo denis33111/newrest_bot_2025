@@ -194,7 +194,7 @@ We wish you all the best in your future endeavors!"""
             await self._notify_admin_not_interested(user_id, language)
             
             # Update WORKERS sheet status
-            await self._update_worker_status(user_id, 'NOT_INTERESTED')
+            await self._update_worker_status(user_id, 'REJECTED')
             
             logger.info(f"User {user_id} is no longer interested")
             return True
