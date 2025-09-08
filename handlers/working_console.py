@@ -8,10 +8,10 @@ import os
 import logging
 from datetime import datetime
 import pytz
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Bot, ReplyKeyboardMarkup, KeyboardButton
 from services.google_sheets import get_user_working_status, update_working_status
 from services.location_service import validate_work_location
-from handlers.language_system import get_text, get_buttons
+from handlers.language_system import get_text
 
 logger = logging.getLogger(__name__)
 
