@@ -392,10 +392,22 @@ class AdminEvaluation:
             bot = Bot(token=self.bot_token)
             logger.info(f"notify_user_result - candidate_data: {self.candidate_data}")
             name = self.candidate_data.get('full_name', 'Unknown')
-            logger.info(f"notify_user_result - extracted name: {name}")
+            language = self.candidate_data.get('language', 'gr')
+            logger.info(f"notify_user_result - extracted name: {name}, language: {language}")
             
             if approved:
-                message = f"""🎉 Συγχαρητήρια!
+                if language == 'en':
+                    message = f"""🎉 Congratulations!
+
+You have been selected for the position **{position}**.
+
+The introductory training will take place on **{course_date}** from 9:50-15:00.
+
+Please submit all necessary documents as we discussed earlier.
+
+If you need help, do not hesitate to contact us."""
+                else:  # Greek
+                    message = f"""🎉 Συγχαρητήρια!
 
 Έχετε επιλεγεί για τη θέση **{position}**.
 
@@ -405,7 +417,12 @@ class AdminEvaluation:
 
 Εάν χρειάζεστε βοήθεια, μη διστάσετε να επικοινωνήσετε μαζί μας."""
             else:
-                message = f"""😔 Δυστυχώς, δεν μπορούμε να προχωρήσουμε με την αίτησή σας αυτή τη στιγμή.
+                if language == 'en':
+                    message = f"""😔 Unfortunately, we cannot proceed with your application at this time.
+
+Thank you for your interest and we wish you all the best!"""
+                else:  # Greek
+                    message = f"""😔 Δυστυχώς, δεν μπορούμε να προχωρήσουμε με την αίτησή σας αυτή τη στιγμή.
 
 Σας ευχαριστούμε για το ενδιαφέρον και σας ευχόμαστε καλή συνέχεια!"""
             
