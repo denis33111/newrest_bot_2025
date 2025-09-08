@@ -78,7 +78,9 @@ class WorkingConsole:
             # User is checked in
             check_in_time = status.get('check_in_time', 'Unknown')
             
-            message = f"""🚀 **{get_text(language, 'working_console')}**
+            message = f"""✅ **{get_text(language, 'welcome_back')}, {status.get('user_name', 'User')}!**
+
+{get_text(language, 'already_registered')}
 
 **{get_text(language, 'status_checked_in')}**
 **{get_text(language, 'check_in_time')}** {check_in_time}
@@ -87,7 +89,9 @@ class WorkingConsole:
 {get_text(language, 'use_buttons_below')}"""
         else:
             # User is not checked in
-            message = f"""🚀 **{get_text(language, 'working_console')}**
+            message = f"""✅ **{get_text(language, 'welcome_back')}, {status.get('user_name', 'User')}!**
+
+{get_text(language, 'already_registered')}
 
 **{get_text(language, 'status_not_checked_in')}**
 
@@ -162,7 +166,8 @@ class WorkingConsole:
         reply_markup = ReplyKeyboardMarkup(
             keyboard, 
             resize_keyboard=True, 
-            one_time_keyboard=True
+            one_time_keyboard=False,
+            is_persistent=True
         )
         
         message = f"""🟢 **{get_text(language, 'check_in_required')}**
@@ -183,7 +188,7 @@ class WorkingConsole:
             reply_markup=reply_markup
         )
     
-    async def _request_location_for_check_out(self):
+    async def _request_location_for_check_out(self, language):
         """Request location for check out"""
         keyboard = [
             [KeyboardButton("📍 Share Location", request_location=True)]
@@ -191,19 +196,20 @@ class WorkingConsole:
         reply_markup = ReplyKeyboardMarkup(
             keyboard, 
             resize_keyboard=True, 
-            one_time_keyboard=True
+            one_time_keyboard=False,
+            is_persistent=True
         )
         
-        message = """🔚 **Check Out - Location Required**
+        message = f"""🔚 **{get_text(language, 'check_out_required')}**
 
-To check out, please share your current location.
+{get_text(language, 'share_location_instructions')}
 
-**How to share location:**
-1. Tap 'Share Location' below
-2. Allow location access when prompted
-3. Select 'Send Location'
+**{get_text(language, 'how_to_share_location')}**
+1. {get_text(language, 'tap_share_location')}
+2. {get_text(language, 'allow_location_access')}
+3. {get_text(language, 'select_send_location')}
 
-**Note:** You must be within 500m of the work location to check out successfully."""
+**{get_text(language, 'location_note')}**"""
         
         await self.bot.send_message(
             chat_id=self.user_id,
