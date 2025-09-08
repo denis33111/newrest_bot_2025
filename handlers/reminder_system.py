@@ -366,7 +366,11 @@ We wish you all the best in your future endeavors!"""
                     language = language_col[i]
                     user_status = user_status_map.get(user_id)
                     
-                    if (pre_course_reminder == target_date and
+                    # Convert string date to date object for comparison
+                    pre_course_reminder_str = str(pre_course_reminder) if pre_course_reminder else ""
+                    target_date_str = str(target_date)
+                    
+                    if (pre_course_reminder_str == target_date_str and
                         not first_reminder_sent and
                         user_status not in ['REJECTED', 'CANCELLED']):
                         users_to_remind.append({
@@ -443,7 +447,11 @@ We wish you all the best in your future endeavors!"""
                     language = language_col[i]
                     user_status = user_status_map.get(user_id)
                     
-                    if (day_course_reminder == target_date and 
+                    # Convert string date to string for comparison
+                    day_course_reminder_str = str(day_course_reminder) if day_course_reminder else ""
+                    target_date_str = str(target_date)
+                    
+                    if (day_course_reminder_str == target_date_str and 
                         user_status == 'APPROVED_COURSE_DATE_SET' and
                         first_reminder_response == 'YES' and
                         not second_reminder_sent):
