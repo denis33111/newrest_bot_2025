@@ -86,13 +86,20 @@ def check_user_status(user_id):
         id_column = workers_sheet.col_values(2)  # Column B - ID
         status_column = workers_sheet.col_values(3)  # Column C - STATUS
         
+        logger.info(f"ID column: {id_column}")
+        logger.info(f"Status column: {status_column}")
+        logger.info(f"Looking for user_id: {user_id}")
+        
         # Check if user_id exists in ID column
         for i, user_id_in_sheet in enumerate(id_column[1:], start=2):  # Skip header row
+            logger.info(f"Checking row {i}: user_id_in_sheet={user_id_in_sheet}, target={user_id}")
             if str(user_id) == str(user_id_in_sheet):
-                # Get corresponding status
+                # Get corresponding status - use same index for status column
                 status = status_column[i-1] if i-1 < len(status_column) else 'UNKNOWN'
+                logger.info(f"Found user {user_id} with status: {status}")
                 return status
         
+        logger.info(f"User {user_id} not found in WORKERS sheet")
         return 'NOT_FOUND'
         
     except Exception as e:
