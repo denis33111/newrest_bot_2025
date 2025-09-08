@@ -34,11 +34,25 @@ async def handle_telegram_message(message):
         logger.info(f"Processing message from user {user_id} ({username}): {text}")
         
         
-        # Handle custom date input from admin
-        # Check if message is from admin group and if any admin evaluation is waiting for custom date
+        # Handle admin group commands first
         admin_group_id = os.getenv('ADMIN_GROUP_ID')
         if str(message.get('chat', {}).get('id')) == admin_group_id:
-            # Message is from admin group, check if any evaluation is waiting for custom date
+            # Handle admin simulation commands
+            if text == '/simulate_reminders':
+                await handle_simulate_reminders_command(message)
+                return
+            elif text == '/simulate_tomorrow':
+                await handle_simulate_tomorrow_command(message)
+                return
+            elif text == '/simulate_today':
+                await handle_simulate_today_command(message)
+                return
+            elif text == '/reminder_help':
+                await handle_reminder_help_command(message)
+                return
+            
+            # Handle custom date input from admin
+            # Check if message is from admin group and if any admin evaluation is waiting for custom date
             for eval_user_id, admin_eval in admin_evaluation_instances.items():
                 if admin_eval.waiting_for_custom_date:
                     await admin_eval.handle_custom_date_input(text, admin_evaluation_instances)
@@ -396,3 +410,183 @@ Please contact support for assistance."""
         
     except Exception as e:
         logger.error(f"Error sending unknown status message: {e}")
+
+async def handle_simulate_reminders_command(message):
+    """Simulate the natural reminder process - both pre-day and day reminders"""
+    try:
+        from telegram import Bot
+        from handlers.reminder_system import ReminderSystem
+        from datetime import datetime, timedelta
+        import pytz
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        chat_id = message.get('chat', {}).get('id')
+        
+        await bot.send_message(chat_id=chat_id, text="🔄 Simulating natural reminder process...")
+        
+        # Get dates
+        greece_tz = pytz.timezone('Europe/Athens')
+        now = datetime.now(greece_tz)
+        today = now.strftime('%Y-%m-%d')
+        tomorrow = (now + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        reminder_system = ReminderSystem()
+        
+        # Simulate pre-day reminders (9:50 AM process)
+        await bot.send_message(chat_id=chat_id, text=f"📅 **Pre-Day Reminders (9:50 AM Process)**")
+        await bot.send_message(chat_id=chat_id, text=f"Scanning for users with PRE_COURSE_REMINDER = {tomorrow}")
+        
+        pre_users = await reminder_system.get_users_for_reminder(tomorrow)
+        await bot.send_message(chat_id=chat_id, text=f"Found {len(pre_users)} eligible users for pre-day reminder")
+        
+        if pre_users:
+            for user in pre_users:
+                await reminder_system.send_pre_course_reminder(
+                    user['user_id'], 
+                    user['course_date'], 
+                    user['language']
+                )
+            await bot.send_message(chat_id=chat_id, text=f"✅ Sent {len(pre_users)} pre-day reminders!")
+        else:
+            await bot.send_message(chat_id=chat_id, text="❌ No users found for pre-day reminder")
+        
+        # Simulate day-course reminders (10:00 AM process)
+        await bot.send_message(chat_id=chat_id, text=f"📅 **Day-Course Reminders (10:00 AM Process)**")
+        await bot.send_message(chat_id=chat_id, text=f"Scanning for users with COURSE_DATE = {today} who responded YES")
+        
+        day_users = await reminder_system.get_users_for_day_reminder(today)
+        await bot.send_message(chat_id=chat_id, text=f"Found {len(day_users)} eligible users for day-course reminder")
+        
+        if day_users:
+            for user in day_users:
+                await reminder_system.send_day_course_reminder(
+                    user['user_id'], 
+                    user['course_date'], 
+                    user['language']
+                )
+            await bot.send_message(chat_id=chat_id, text=f"✅ Sent {len(day_users)} day-course reminders!")
+        else:
+            await bot.send_message(chat_id=chat_id, text="❌ No users found for day-course reminder")
+        
+        await bot.send_message(chat_id=chat_id, text="🎯 **Simulation Complete!** Natural reminder process executed.")
+        
+    except Exception as e:
+        logger.error(f"Error in simulate reminders command: {e}")
+        await bot.send_message(chat_id=chat_id, text=f"❌ Error: {str(e)}")
+
+async def handle_simulate_tomorrow_command(message):
+    """Simulate tomorrow's pre-day reminder process"""
+    try:
+        from telegram import Bot
+        from handlers.reminder_system import ReminderSystem
+        from datetime import datetime, timedelta
+        import pytz
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        chat_id = message.get('chat', {}).get('id')
+        
+        await bot.send_message(chat_id=chat_id, text="🔄 Simulating tomorrow's pre-day reminder process...")
+        
+        # Get tomorrow's date
+        greece_tz = pytz.timezone('Europe/Athens')
+        now = datetime.now(greece_tz)
+        tomorrow = (now + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        reminder_system = ReminderSystem()
+        
+        await bot.send_message(chat_id=chat_id, text=f"📅 Scanning for users with PRE_COURSE_REMINDER = {tomorrow}")
+        
+        users = await reminder_system.get_users_for_reminder(tomorrow)
+        await bot.send_message(chat_id=chat_id, text=f"Found {len(users)} eligible users for pre-day reminder")
+        
+        if users:
+            for user in users:
+                await reminder_system.send_pre_course_reminder(
+                    user['user_id'], 
+                    user['course_date'], 
+                    user['language']
+                )
+            await bot.send_message(chat_id=chat_id, text=f"✅ Sent {len(users)} pre-day reminders for {tomorrow}!")
+        else:
+            await bot.send_message(chat_id=chat_id, text=f"❌ No users found for {tomorrow}")
+        
+    except Exception as e:
+        logger.error(f"Error in simulate tomorrow command: {e}")
+        await bot.send_message(chat_id=chat_id, text=f"❌ Error: {str(e)}")
+
+async def handle_simulate_today_command(message):
+    """Simulate today's day-course reminder process"""
+    try:
+        from telegram import Bot
+        from handlers.reminder_system import ReminderSystem
+        from datetime import datetime
+        import pytz
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        chat_id = message.get('chat', {}).get('id')
+        
+        await bot.send_message(chat_id=chat_id, text="🔄 Simulating today's day-course reminder process...")
+        
+        # Get today's date
+        greece_tz = pytz.timezone('Europe/Athens')
+        now = datetime.now(greece_tz)
+        today = now.strftime('%Y-%m-%d')
+        
+        reminder_system = ReminderSystem()
+        
+        await bot.send_message(chat_id=chat_id, text=f"📅 Scanning for users with COURSE_DATE = {today} who responded YES")
+        
+        users = await reminder_system.get_users_for_day_reminder(today)
+        await bot.send_message(chat_id=chat_id, text=f"Found {len(users)} eligible users for day-course reminder")
+        
+        if users:
+            for user in users:
+                await reminder_system.send_day_course_reminder(
+                    user['user_id'], 
+                    user['course_date'], 
+                    user['language']
+                )
+            await bot.send_message(chat_id=chat_id, text=f"✅ Sent {len(users)} day-course reminders for {today}!")
+        else:
+            await bot.send_message(chat_id=chat_id, text=f"❌ No users found for {today}")
+        
+    except Exception as e:
+        logger.error(f"Error in simulate today command: {e}")
+        await bot.send_message(chat_id=chat_id, text=f"❌ Error: {str(e)}")
+
+async def handle_reminder_help_command(message):
+    """Show reminder simulation help"""
+    try:
+        from telegram import Bot
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        chat_id = message.get('chat', {}).get('id')
+        
+        help_text = """🔧 **Reminder Simulation Commands**
+
+`/simulate_reminders` - Simulate the complete natural reminder process
+- Runs pre-day reminders (9:50 AM process) for tomorrow
+- Runs day-course reminders (10:00 AM process) for today
+- Shows exactly what the bot does naturally
+
+`/simulate_tomorrow` - Simulate tomorrow's pre-day reminder process
+- Scans for users with PRE_COURSE_REMINDER = tomorrow
+- Sends pre-day reminder messages with Yes/No buttons
+
+`/simulate_today` - Simulate today's day-course reminder process  
+- Scans for users with COURSE_DATE = today who responded YES
+- Sends day-course reminder messages with check-in buttons
+
+`/reminder_help` - Show this help
+
+**Note**: These commands trigger the actual reminder system and send real messages to users!"""
+        
+        await bot.send_message(chat_id=chat_id, text=help_text)
+        
+    except Exception as e:
+        logger.error(f"Error in reminder help command: {e}")
+        await bot.send_message(chat_id=chat_id, text=f"❌ Error: {str(e)}")

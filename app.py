@@ -167,12 +167,18 @@ def test_all():
     return jsonify(results)
 
 # Telegram webhook endpoint
-@app.route('/download/<filename>')
+@app.route('/download/<path:filename>')
 def download_file(filename):
     """Download files like PDFs"""
     try:
         file_path = os.path.join(os.getcwd(), filename)
+        logger.info(f"Download request for: {filename}")
+        logger.info(f"Looking for file at: {file_path}")
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"File exists: {os.path.exists(file_path)}")
+        
         if os.path.exists(file_path):
+            logger.info(f"File found, sending: {file_path}")
             return send_file(
                 file_path, 
                 as_attachment=True,
@@ -180,7 +186,12 @@ def download_file(filename):
                 mimetype='application/pdf'
             )
         else:
-            return jsonify({'error': 'File not found'}), 404
+            logger.error(f"File not found: {file_path}")
+            # List files in current directory for debugging
+            files = os.listdir(os.getcwd())
+            pdf_files = [f for f in files if f.endswith('.pdf')]
+            logger.error(f"Available PDF files: {pdf_files}")
+            return jsonify({'error': 'File not found', 'available_files': pdf_files}), 404
     except Exception as e:
         logger.error(f"Error downloading file {filename}: {e}")
         return jsonify({'error': 'Download failed'}), 500
