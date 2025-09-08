@@ -161,6 +161,8 @@ async def handle_admin_evaluation_callback(data):
             'driving_license': 'Unknown'
         })
         
+        logger.info(f"Retrieved candidate data for user {user_id}: {candidate_data}")
+        
         # Get or create admin evaluation instance to maintain state
         if user_id not in admin_evaluation_instances:
             admin_evaluation_instances[user_id] = AdminEvaluation(user_id, candidate_data)
