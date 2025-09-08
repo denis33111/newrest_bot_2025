@@ -10,6 +10,7 @@ from services.telegram_bot import send_working_console, send_error_message
 from handlers.registration_flow import RegistrationFlow
 from handlers.working_console import WorkingConsole
 from handlers.admin_evaluation import AdminEvaluation
+from handlers.reminder_system import ReminderSystem
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,9 @@ async def handle_callback_query(callback_query):
         # Handle admin evaluation callbacks
         if data.startswith('admin_eval_'):
             await handle_admin_evaluation_callback(data)
+        # Handle reminder callbacks
+        elif data.startswith('reminder_'):
+            await handle_reminder_callback(data)
         
         # Handle registration callbacks
         elif user_id in active_registrations:
@@ -194,3 +198,35 @@ async def handle_admin_evaluation_callback(data):
         
     except Exception as e:
         logger.error(f"Error handling admin evaluation callback: {e}")
+
+async def handle_reminder_callback(data):
+    """Handle reminder callback queries"""
+    try:
+        parts = data.split('_')
+        
+        if len(parts) < 3:
+            logger.error(f"Invalid reminder callback: {data}")
+            return
+        
+        action = parts[1]  # yes, no, reschedule, not_interested
+        user_id = parts[2]
+        
+        reminder_system = ReminderSystem()
+        
+        # Get user language from candidate data
+        candidate_data = candidate_data_storage.get(user_id, {})
+        language = candidate_data.get('language', 'gr')
+        
+        if action == 'yes':
+            await reminder_system.handle_attendance_confirmation(user_id, 'yes', language)
+        elif action == 'no':
+            await reminder_system.handle_attendance_confirmation(user_id, 'no', language)
+        elif action == 'reschedule':
+            await reminder_system.handle_reschedule_request(user_id, language)
+        elif action == 'not_interested':
+            await reminder_system.handle_not_interested(user_id, language)
+        
+        logger.info(f"Reminder callback handled: {action} for user {user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error handling reminder callback: {e}")

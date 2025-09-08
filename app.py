@@ -10,6 +10,7 @@ from flask import Flask, jsonify, request, send_file
 from services.google_sheets import init_google_sheets
 from services.telegram_bot import setup_webhook
 from handlers.message_handler import handle_telegram_message, handle_callback_query
+from scheduler import start_reminder_scheduler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -211,6 +212,12 @@ def webhook():
     
     return jsonify({'status': 'ok'})
 
+async def start_background_tasks():
+    """Start background tasks like reminder scheduler"""
+    # Start reminder scheduler
+    asyncio.create_task(start_reminder_scheduler())
+    logger.info("Background tasks started")
+
 if __name__ == '__main__':
     # Test all connections on startup
     print("🚀 Starting NewRest Bot 2025...")
@@ -221,5 +228,8 @@ if __name__ == '__main__':
     # Set up webhook
     if BOT_TOKEN and WEBHOOK_URL:
         asyncio.run(setup_webhook())
+    
+    # Start background tasks
+    asyncio.run(start_background_tasks())
     
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
