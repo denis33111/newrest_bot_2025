@@ -329,7 +329,12 @@ We wish you all the best in your future endeavors!"""
             
             # Get specific columns to avoid duplicate header issues
             # Read only the columns we need from each sheet
-            registration_data = registration_sheet.get_all_records()
+            # Read specific columns from registration sheet
+            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+            pre_course_reminder_col = registration_sheet.col_values(19)  # Column S (PRE_COURSE_REMINDER)
+            first_reminder_sent_col = registration_sheet.col_values(21)  # Column U (FIRST_REMINDER_SENT)
+            course_date_col = registration_sheet.col_values(18)  # Column R (COURSE_DATE)
+            language_col = registration_sheet.col_values(1)  # Column A (LANGUAGE)
             
             # Read only specific columns from workers sheet to avoid conflicts
             workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
@@ -348,18 +353,27 @@ We wish you all the best in your future endeavors!"""
             # AND who haven't been sent a reminder yet
             # AND who have valid status (not REJECTED)
             users_to_remind = []
-            for row in registration_data:
-                user_id = row.get('user id')
-                user_status = user_status_map.get(user_id)
-                
-                if (row.get('PRE_COURSE_REMINDER') == target_date and
-                    not row.get('FIRST_REMINDER_SENT') and
-                    user_status not in ['REJECTED', 'CANCELLED']):
-                    users_to_remind.append({
-                        'user_id': user_id,
-                        'course_date': row.get('COURSE_DATE'),
-                        'language': row.get('LANGUAGE', 'gr')
-                    })
+            for i in range(1, len(user_id_col)):  # Skip header row
+                if (i < len(pre_course_reminder_col) and 
+                    i < len(first_reminder_sent_col) and
+                    i < len(course_date_col) and
+                    i < len(language_col)):
+                    
+                    user_id = user_id_col[i]
+                    pre_course_reminder = pre_course_reminder_col[i]
+                    first_reminder_sent = first_reminder_sent_col[i]
+                    course_date = course_date_col[i]
+                    language = language_col[i]
+                    user_status = user_status_map.get(user_id)
+                    
+                    if (pre_course_reminder == target_date and
+                        not first_reminder_sent and
+                        user_status not in ['REJECTED', 'CANCELLED']):
+                        users_to_remind.append({
+                            'user_id': user_id,
+                            'course_date': course_date,
+                            'language': language or 'gr'
+                        })
             
             logger.info(f"Found {len(users_to_remind)} users to remind for {target_date}")
             return users_to_remind
@@ -380,7 +394,13 @@ We wish you all the best in your future endeavors!"""
             
             # Get specific columns to avoid duplicate header issues
             # Read only the columns we need from each sheet
-            registration_data = registration_sheet.get_all_records()
+            # Read specific columns from registration sheet
+            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+            day_course_reminder_col = registration_sheet.col_values(20)  # Column T (DAY_COURSE_REMINDER)
+            course_date_col = registration_sheet.col_values(18)  # Column R (COURSE_DATE)
+            first_reminder_response_col = registration_sheet.col_values(23)  # Column W (FIRST_REMINDER_RESPONSE)
+            second_reminder_sent_col = registration_sheet.col_values(22)  # Column V (SECOND_REMINDER_SENT)
+            language_col = registration_sheet.col_values(1)  # Column A (LANGUAGE)
             
             # Read only specific columns from workers sheet to avoid conflicts
             workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
@@ -400,17 +420,30 @@ We wish you all the best in your future endeavors!"""
             # AND who responded YES to first reminder
             # AND who haven't been sent second reminder yet
             users_to_remind = []
-            for row in registration_data:
-                user_id = row.get('user id')
-                if (row.get('DAY_COURSE_REMINDER') == target_date and 
-                    user_status_map.get(user_id) == 'APPROVED_COURSE_DATE_SET' and
-                    row.get('FIRST_REMINDER_RESPONSE') == 'YES' and
-                    not row.get('SECOND_REMINDER_SENT')):
-                    users_to_remind.append({
-                        'user_id': user_id,
-                        'course_date': row.get('COURSE_DATE'),
-                        'language': row.get('LANGUAGE', 'gr')
-                    })
+            for i in range(1, len(user_id_col)):  # Skip header row
+                if (i < len(day_course_reminder_col) and 
+                    i < len(course_date_col) and
+                    i < len(first_reminder_response_col) and
+                    i < len(second_reminder_sent_col) and
+                    i < len(language_col)):
+                    
+                    user_id = user_id_col[i]
+                    day_course_reminder = day_course_reminder_col[i]
+                    course_date = course_date_col[i]
+                    first_reminder_response = first_reminder_response_col[i]
+                    second_reminder_sent = second_reminder_sent_col[i]
+                    language = language_col[i]
+                    user_status = user_status_map.get(user_id)
+                    
+                    if (day_course_reminder == target_date and 
+                        user_status == 'APPROVED_COURSE_DATE_SET' and
+                        first_reminder_response == 'YES' and
+                        not second_reminder_sent):
+                        users_to_remind.append({
+                            'user_id': user_id,
+                            'course_date': course_date,
+                            'language': language or 'gr'
+                        })
             
             logger.info(f"Found {len(users_to_remind)} users for day course reminder on {target_date}")
             return users_to_remind

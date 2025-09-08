@@ -535,16 +535,19 @@ async def send_waiting_message(user_id, status):
             return
         
         registration_sheet = sheets_data['sheets']['registration']
-        all_data = registration_sheet.get_all_records()
+        
+        # Read only specific columns to avoid duplicate header issues
+        user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+        course_date_col = registration_sheet.col_values(18)  # Column R (COURSE_DATE)
         
         # Find user's course details
         course_date = "Unknown"
-        position = "Unknown"
+        position = "Unknown"  # Position not available in registration sheet
         
-        for row in all_data:
-            if str(row.get('user id')) == str(user_id):
-                course_date = row.get('COURSE_DATE', 'Unknown')
-                position = row.get('POSITION', 'Unknown')
+        for i in range(1, len(user_id_col)):  # Skip header row
+            if str(user_id_col[i]) == str(user_id):
+                if i < len(course_date_col):
+                    course_date = course_date_col[i] or 'Unknown'
                 break
         
         message = f"""⏳ We are waiting for you!
