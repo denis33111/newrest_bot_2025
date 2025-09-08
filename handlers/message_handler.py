@@ -49,12 +49,18 @@ async def handle_telegram_message(message):
             registration = RegistrationFlow(user_id)
             active_registrations[user_id] = registration
             await registration.start_registration()
+        elif user_status == 'REJECTED':
+            # User was rejected - show service unavailable
+            await send_rejection_message(user_id)
+        elif user_status in ['COURSE_DATE_SET', 'APPROVED_COURSE_DATE_SET']:
+            # User in transition - show waiting message
+            await send_waiting_message(user_id, user_status)
         elif user_status == 'OFF':
             # Disabled user - no response
             logger.info(f"Disabled user {user_id} - ignoring message")
             return
         else:
-            await send_error_message(user_id)
+            await send_unknown_status_message(user_id)
             
     except Exception as e:
         logger.error(f"Error handling Telegram message: {e}")
@@ -258,3 +264,101 @@ async def handle_day_checkin_callback(data):
         
     except Exception as e:
         logger.error(f"Error handling day check-in callback: {e}")
+
+async def send_rejection_message(user_id):
+    """Send rejection message to user"""
+    try:
+        from services.telegram_bot import Bot
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        
+        message = """😔 Service Unavailable
+
+Unfortunately, your application was not approved at this time.
+
+Thank you for your interest."""
+        
+        await bot.send_message(
+            chat_id=user_id,
+            text=message,
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"Rejection message sent to user {user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error sending rejection message: {e}")
+
+async def send_waiting_message(user_id, status):
+    """Send waiting message to user in transition"""
+    try:
+        from services.telegram_bot import Bot
+        from services.google_sheets import init_google_sheets
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        
+        # Get course details from REGISTRATION sheet
+        sheets_data = init_google_sheets()
+        if sheets_data['status'] != 'success':
+            await send_unknown_status_message(user_id)
+            return
+        
+        registration_sheet = sheets_data['sheets']['registration']
+        all_data = registration_sheet.get_all_records()
+        
+        # Find user's course details
+        course_date = "Unknown"
+        position = "Unknown"
+        
+        for row in all_data:
+            if str(row.get('user id')) == str(user_id):
+                course_date = row.get('COURSE_DATE', 'Unknown')
+                position = row.get('POSITION', 'Unknown')
+                break
+        
+        message = f"""⏳ We are waiting for you!
+
+Your course is scheduled for:
+📅 Date: {course_date}
+🕘 Time: 9:50-15:00
+💼 Position: {position}
+
+Please wait for further instructions."""
+        
+        await bot.send_message(
+            chat_id=user_id,
+            text=message,
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"Waiting message sent to user {user_id} with status {status}")
+        
+    except Exception as e:
+        logger.error(f"Error sending waiting message: {e}")
+
+async def send_unknown_status_message(user_id):
+    """Send unknown status message to user"""
+    try:
+        from services.telegram_bot import Bot
+        import os
+        
+        bot = Bot(token=os.getenv('BOT_TOKEN'))
+        
+        message = """❓ Unknown Status
+
+There seems to be an issue with your account status.
+
+Please contact support for assistance."""
+        
+        await bot.send_message(
+            chat_id=user_id,
+            text=message,
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"Unknown status message sent to user {user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error sending unknown status message: {e}")
