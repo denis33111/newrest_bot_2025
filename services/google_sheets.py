@@ -8,6 +8,7 @@ import os
 import logging
 import gspread
 import time
+import asyncio
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 from googleapiclient.errors import HttpError
@@ -21,7 +22,22 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv('GOOGLE_SERVICE_ACCOUNT_EMAIL')
 def retry_on_quota_error(max_retries=3, delay=2):
     """Decorator to retry on Google Sheets quota errors"""
     def decorator(func):
-        def wrapper(*args, **kwargs):
+        async def async_wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return await func(*args, **kwargs)
+                except HttpError as e:
+                    if e.resp.status == 429 and attempt < max_retries - 1:
+                        logger.warning(f"Quota exceeded, retrying in {delay} seconds... (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(delay)
+                        continue
+                    else:
+                        raise e
+                except Exception as e:
+                    raise e
+            return None
+        
+        def sync_wrapper(*args, **kwargs):
             for attempt in range(max_retries):
                 try:
                     return func(*args, **kwargs)
@@ -35,9 +51,14 @@ def retry_on_quota_error(max_retries=3, delay=2):
                 except Exception as e:
                     raise e
             return None
-        return wrapper
+        
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
     return decorator
 
+@retry_on_quota_error(max_retries=3, delay=2)
 def init_google_sheets():
     """Initialize Google Sheets connection"""
     try:
@@ -250,6 +271,21 @@ async def get_user_working_status(user_id):
     try:
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
+            # Try to get user name even if sheets connection fails
+            try:
+                # Get user name from workers sheet for error message
+                workers_sheet = sheets_data.get('sheets', {}).get('workers')
+                if workers_sheet:
+                    workers_data = workers_sheet.get_all_values()
+                    user_name = None
+                    for row in workers_data[1:]:
+                        if len(row) >= 2 and str(user_id) == str(row[1]):
+                            user_name = row[0]
+                            break
+                    if user_name:
+                        return {'checked_in': False, 'error': 'Sheets connection failed', 'user_name': user_name, 'language': 'gr'}
+            except:
+                pass
             return {'checked_in': False, 'error': 'Sheets connection failed', 'language': 'gr'}
         
         # Get current date for today's tracking

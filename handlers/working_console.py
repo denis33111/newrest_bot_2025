@@ -93,9 +93,7 @@ class WorkingConsole:
 
 {get_text(language, 'already_registered')}
 
-**{get_text(language, 'status_not_checked_in')}**
-
-{get_text(language, 'ready_to_start')}"""
+{get_text(language, 'use_buttons_below')}"""
         
         return message
     
