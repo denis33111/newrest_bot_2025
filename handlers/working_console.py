@@ -311,7 +311,6 @@ class WorkingConsole:
                 'action': 'checkin',
                 'timestamp': datetime.now(greece_tz)
             }
-            logger.info(f"Stored check-in pending action for user {self.user_id}: {pending_actions[self.user_id]}")
             
             # Create location request keyboard with back button
             keyboard = [
@@ -356,7 +355,6 @@ class WorkingConsole:
                 'action': 'checkout',
                 'timestamp': datetime.now(greece_tz)
             }
-            logger.info(f"Stored check-out pending action for user {self.user_id}: {pending_actions[self.user_id]}")
             
             # Create location request keyboard with back button
             keyboard = [
@@ -390,22 +388,15 @@ class WorkingConsole:
     async def handle_location(self, location):
         """Handle location sharing for check in/out with pending action tracking"""
         try:
-            logger.info(f"Handling location: {location}")
-            
             # Check if user has a pending action
             pending_action = pending_actions.get(self.user_id)
-            logger.info(f"Checking pending actions for user {self.user_id}")
-            logger.info(f"Current pending actions: {pending_actions}")
-            logger.info(f"User's pending action: {pending_action}")
             
             if not pending_action:
                 # No pending action, ignore location
-                logger.info(f"No pending action for user {self.user_id}, ignoring location")
                 return
             
             # Validate location
             is_valid = validate_work_location(location)
-            logger.info(f"Location validation result: {is_valid}")
             
             if not is_valid:
                 # Get user language for localized error message
@@ -435,18 +426,13 @@ class WorkingConsole:
                 return
             
             # Location verified, proceed with action
-            logger.info(f"Location verified, proceeding with action: {pending_action['action']}")
             if pending_action['action'] == 'checkin':
-                logger.info(f"Calling complete_checkin for user {self.user_id}")
                 await self._complete_checkin(location)
             elif pending_action['action'] == 'checkout':
-                logger.info(f"Calling complete_checkout for user {self.user_id}")
                 await self._complete_checkout(location)
             
             # Clear pending action
-            logger.info(f"Clearing pending action for user {self.user_id}")
             pending_actions.pop(self.user_id, None)
-            logger.info(f"Pending actions after clearing: {pending_actions}")
                 
         except Exception as e:
             logger.error(f"Error handling location: {e}")

@@ -39,7 +39,6 @@ async def handle_telegram_message(message):
         
         # Check if user is in WORKERS sheet
         user_status = check_user_status(user_id)
-        logger.info(f"User {user_id} status: {user_status}")
         
         if user_status == 'WORKING':
             # Handle working console messages
@@ -181,7 +180,6 @@ async def handle_admin_evaluation_callback(data):
             'driving_license': 'Unknown'
         })
         
-        logger.info(f"Retrieved candidate data for user {user_id}: {candidate_data}")
         
         # Get or create admin evaluation instance to maintain state
         if user_id not in admin_evaluation_instances:
@@ -210,7 +208,6 @@ async def handle_admin_evaluation_callback(data):
             # Handle custom date input (would need additional implementation)
             logger.info(f"Custom date requested for user {user_id}")
         
-        logger.info(f"Admin evaluation callback handled: {action} for user {user_id}")
         
     except Exception as e:
         logger.error(f"Error handling admin evaluation callback: {e}")
@@ -242,7 +239,6 @@ async def handle_reminder_callback(data):
         elif action == 'not_interested':
             await reminder_system.handle_not_interested(user_id, language)
         
-        logger.info(f"Reminder callback handled: {action} for user {user_id}")
         
     except Exception as e:
         logger.error(f"Error handling reminder callback: {e}")
@@ -267,7 +263,6 @@ async def handle_day_checkin_callback(data):
         # Handle day check-in
         await reminder_system.handle_day_checkin(user_id, language)
         
-        logger.info(f"Day check-in callback handled for user {user_id}")
         
     except Exception as e:
         logger.error(f"Error handling day check-in callback: {e}")

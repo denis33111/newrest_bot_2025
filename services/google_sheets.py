@@ -69,16 +69,23 @@ def init_google_sheets():
 def _init_google_sheets_with_retry():
     """Internal function with retry decorator"""
     try:
+        logger.info("🔍 DEBUG: Starting Google Sheets initialization...")
+        start_time = time.time()
+        
         # Parse private key
         private_key = os.getenv('GOOGLE_PRIVATE_KEY').replace('\\n', '\n')
+        logger.info("🔍 DEBUG: Private key parsed")
         
         # Define scope
         scope = [
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive'
         ]
+        logger.info("🔍 DEBUG: Scopes defined")
         
         # Create credentials
+        logger.info("🔍 DEBUG: Creating credentials...")
+        cred_start = time.time()
         credentials = Credentials.from_service_account_info({
             "type": "service_account",
             "project_id": "newrest-465515",
@@ -91,20 +98,37 @@ def _init_google_sheets_with_retry():
             "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
             "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{GOOGLE_SERVICE_ACCOUNT_EMAIL}"
         }, scopes=scope)
+        logger.info(f"🔍 DEBUG: Credentials created in {time.time() - cred_start:.2f}s")
         
         # Initialize gspread client
+        logger.info("🔍 DEBUG: Authorizing gspread client...")
+        gc_start = time.time()
         gc = gspread.authorize(credentials)
+        logger.info(f"🔍 DEBUG: Gspread client authorized in {time.time() - gc_start:.2f}s")
         
         # Open the spreadsheet
+        logger.info("🔍 DEBUG: Opening spreadsheet...")
+        spreadsheet_start = time.time()
         spreadsheet = gc.open_by_key(GOOGLE_SHEETS_ID)
+        logger.info(f"🔍 DEBUG: Spreadsheet opened in {time.time() - spreadsheet_start:.2f}s")
+        
+        # Get worksheets
+        logger.info("🔍 DEBUG: Getting worksheets...")
+        worksheets_start = time.time()
+        registration_sheet = spreadsheet.worksheet('REGISTRATION')
+        workers_sheet = spreadsheet.worksheet('WORKERS')
+        logger.info(f"🔍 DEBUG: Worksheets retrieved in {time.time() - worksheets_start:.2f}s")
+        
+        total_time = time.time() - start_time
+        logger.info(f"🔍 DEBUG: Google Sheets initialization completed in {total_time:.2f}s")
         
         return {
             'status': 'success',
             'client': gc,
             'spreadsheet': spreadsheet,
             'sheets': {
-                'registration': spreadsheet.worksheet('REGISTRATION'),
-                'workers': spreadsheet.worksheet('WORKERS')
+                'registration': registration_sheet,
+                'workers': workers_sheet
             }
         }
     except Exception as e:
@@ -131,27 +155,49 @@ def get_monthly_sheet(sheet_name):
 def check_user_status(user_id):
     """Check user status in WORKERS sheet - only ID and STATUS columns"""
     try:
+        logger.info(f"🔍 DEBUG: Checking user status for user {user_id}")
+        start_time = time.time()
+        
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
+            logger.error(f"🔍 DEBUG: Google Sheets init failed for user {user_id}")
             return 'ERROR'
+        
+        init_time = time.time() - start_time
+        logger.info(f"🔍 DEBUG: Google Sheets init took {init_time:.2f}s")
         
         workers_sheet = sheets_data['sheets']['workers']
         
         # Get only ID column (B) and STATUS column (C) - more efficient
+        logger.info(f"🔍 DEBUG: Reading ID column (B)...")
+        id_start = time.time()
         id_column = workers_sheet.col_values(2)  # Column B - ID
+        id_time = time.time() - id_start
+        logger.info(f"🔍 DEBUG: ID column read in {id_time:.2f}s ({len(id_column)} values)")
+        
+        logger.info(f"🔍 DEBUG: Reading STATUS column (C)...")
+        status_start = time.time()
         status_column = workers_sheet.col_values(3)  # Column C - STATUS
+        status_time = time.time() - status_start
+        logger.info(f"🔍 DEBUG: STATUS column read in {status_time:.2f}s ({len(status_column)} values)")
         
         # Check if user_id exists in ID column
+        logger.info(f"🔍 DEBUG: Searching for user {user_id}...")
+        search_start = time.time()
         for i, user_id_in_sheet in enumerate(id_column[1:], start=2):  # Skip header row
             if str(user_id) == str(user_id_in_sheet):
                 # Get corresponding status - use same index for status column
                 status = status_column[i-1] if i-1 < len(status_column) else 'UNKNOWN'
                 # Trim whitespace (tabs, spaces, newlines)
                 status = status.strip() if status else 'UNKNOWN'
-                logger.info(f"Found user {user_id} with status: '{status}'")
+                search_time = time.time() - search_start
+                total_time = time.time() - start_time
+                logger.info(f"🔍 DEBUG: User {user_id} found in row {i} with status '{status}' (search: {search_time:.2f}s, total: {total_time:.2f}s)")
                 return status
         
-        logger.info(f"User {user_id} not found in WORKERS sheet")
+        search_time = time.time() - search_start
+        total_time = time.time() - start_time
+        logger.info(f"🔍 DEBUG: User {user_id} not found (search: {search_time:.2f}s, total: {total_time:.2f}s)")
         return 'NOT_FOUND'
         
     except Exception as e:
@@ -220,8 +266,6 @@ def save_registration_data(data):
 def save_worker_data(data):
     """Save worker data to WORKERS sheet"""
     try:
-        logger.info(f"Starting save_worker_data for user {data.get('user_id')}")
-        logger.info(f"Data being saved: {data}")
         
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
@@ -229,7 +273,6 @@ def save_worker_data(data):
             return False
         
         workers_sheet = sheets_data['sheets']['workers']
-        logger.info(f"Got workers sheet: {workers_sheet}")
         
         # Prepare worker data row
         worker_row = [
@@ -239,7 +282,6 @@ def save_worker_data(data):
             data.get('language', 'gr')            # Column D - LANGUAGE
         ]
         
-        logger.info(f"Worker row to append: {worker_row}")
         
         # Add row to WORKERS sheet using specific range to ensure correct columns
         try:
@@ -254,11 +296,6 @@ def save_worker_data(data):
             workers_sheet.update(f'D{next_row}', worker_row[3])  # LANGUAGE
             
             logger.info(f"Worker data updated in row {next_row} for user {data.get('user_id')}")
-            
-            # Verify the data was actually added
-            all_values = workers_sheet.get_all_values()
-            logger.info(f"Total rows in WORKERS sheet after update: {len(all_values)}")
-            logger.info(f"Last row in WORKERS sheet: {all_values[-1] if all_values else 'EMPTY'}")
             
         except Exception as update_error:
             logger.error(f"Worker data update failed for user {data.get('user_id')}: {update_error}")
@@ -276,8 +313,12 @@ def save_worker_data(data):
 async def get_user_working_status(user_id):
     """Get user's current working status and today's data"""
     try:
+        logger.info(f"🔍 DEBUG: Getting working status for user {user_id}")
+        start_time = time.time()
+        
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
+            logger.error(f"🔍 DEBUG: Google Sheets init failed for user {user_id}")
             # Try to get user name even if sheets connection fails
             try:
                 # Get user name from workers sheet for error message
@@ -295,65 +336,112 @@ async def get_user_working_status(user_id):
                 pass
             return {'checked_in': False, 'error': 'Sheets connection failed', 'language': 'gr'}
         
+        init_time = time.time() - start_time
+        logger.info(f"🔍 DEBUG: Google Sheets init took {init_time:.2f}s")
+        
         # Get current date for today's tracking
         today = datetime.now().strftime("%m/%d/%Y")
+        logger.info(f"🔍 DEBUG: Today's date: {today}")
         
         # Check if user is in WORKERS sheet
+        logger.info(f"🔍 DEBUG: Reading WORKERS sheet...")
+        workers_start = time.time()
         workers_sheet = sheets_data['sheets']['workers']
         workers_data = workers_sheet.get_all_values()
+        workers_time = time.time() - workers_start
+        logger.info(f"🔍 DEBUG: WORKERS sheet read in {workers_time:.2f}s ({len(workers_data)} rows)")
         
         user_name = None
         user_language = 'gr'  # Default to Greek
+        search_start = time.time()
         for row in workers_data[1:]:  # Skip header row
             if len(row) >= 2 and str(user_id) == str(row[1]):  # Check ID column
                 user_name = row[0]  # Get name from column A
                 if len(row) >= 4:  # Check if language column exists
                     user_language = row[3]  # Get language from column D
                 break
+        search_time = time.time() - search_start
+        logger.info(f"🔍 DEBUG: User search took {search_time:.2f}s - found: {user_name}, language: {user_language}")
         
         if not user_name:
             return {'checked_in': False, 'error': 'User not found in workers sheet', 'language': user_language}
         
         # Get current month sheet
+        logger.info(f"🔍 DEBUG: Getting current month sheet...")
+        month_start = time.time()
         current_month_sheet_name = get_current_month_sheet()
+        month_time = time.time() - month_start
+        logger.info(f"🔍 DEBUG: Current month sheet: {current_month_sheet_name} (took {month_time:.2f}s)")
+        
         if not current_month_sheet_name:
             return {'checked_in': False, 'error': 'Could not determine current month', 'language': user_language}
         
         # Check if current month sheet exists, create if not
+        logger.info(f"🔍 DEBUG: Getting/creating monthly sheet...")
+        monthly_start = time.time()
         monthly_sheet = get_monthly_sheet(current_month_sheet_name)
+        monthly_time = time.time() - monthly_start
+        logger.info(f"🔍 DEBUG: Monthly sheet access took {monthly_time:.2f}s")
+        
         if not monthly_sheet:
             return {'checked_in': False, 'error': 'Could not access or create monthly sheet', 'language': user_language}
         
+        logger.info(f"🔍 DEBUG: Reading monthly sheet data...")
+        monthly_data_start = time.time()
         monthly_data = monthly_sheet.get_all_values()
+        monthly_data_time = time.time() - monthly_data_start
+        logger.info(f"🔍 DEBUG: Monthly sheet data read in {monthly_data_time:.2f}s ({len(monthly_data)} rows)")
         
         # Find user's row in monthly sheet
+        logger.info(f"🔍 DEBUG: Searching for user {user_name} in monthly sheet...")
+        user_search_start = time.time()
         user_row = None
         for i, row in enumerate(monthly_data[2:], start=3):  # Skip header rows, start from row 3
             if len(row) > 0 and row[0] == user_name:  # Check name column
                 user_row = i
                 break
+        user_search_time = time.time() - user_search_start
+        logger.info(f"🔍 DEBUG: User search in monthly sheet took {user_search_time:.2f}s - found row: {user_row}")
         
         if not user_row:
             # Create new row for user
+            logger.info(f"🔍 DEBUG: Creating new row for user {user_name}...")
+            create_start = time.time()
             user_row = create_user_row_in_monthly_sheet(monthly_sheet, user_name)
+            create_time = time.time() - create_start
+            logger.info(f"🔍 DEBUG: User row creation took {create_time:.2f}s - row: {user_row}")
             if not user_row:
                 return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m', 'language': user_language}
         
         # Get today's data from monthly sheet
+        logger.info(f"🔍 DEBUG: Getting today's column...")
+        column_start = time.time()
         today_column = get_today_column()
+        column_time = time.time() - column_start
+        logger.info(f"🔍 DEBUG: Today's column: {today_column} (took {column_time:.2f}s)")
+        
         if today_column is None:
             return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m', 'language': user_language}
         
         # Get today's attendance data
+        logger.info(f"🔍 DEBUG: Reading today's data from cell ({user_row}, {today_column})...")
+        cell_start = time.time()
         today_data = monthly_sheet.cell(user_row, today_column).value
+        cell_time = time.time() - cell_start
+        logger.info(f"🔍 DEBUG: Today's data: '{today_data}' (took {cell_time:.2f}s)")
         
         if not today_data:
+            total_time = time.time() - start_time
+            logger.info(f"🔍 DEBUG: No today's data found (total: {total_time:.2f}s)")
             return {'checked_in': False, 'user_name': user_name, 'today_hours': '0h 0m', 'language': user_language}
         
         # Parse today's data to determine status
+        logger.info(f"🔍 DEBUG: Parsing today's data: '{today_data}'")
+        parse_start = time.time()
+        
         if '-' in today_data and not today_data.endswith('-'):
             # Has both check-in and check-out times
-            return {
+            result = {
                 'checked_in': False,
                 'user_name': user_name,
                 'today_hours': calculate_hours_from_data(today_data),
@@ -364,7 +452,7 @@ async def get_user_working_status(user_id):
         elif today_data.endswith('-'):
             # Only check-in time (checked in)
             check_in_time = today_data.replace('-', '').strip()
-            return {
+            result = {
                 'checked_in': True,
                 'user_name': user_name,
                 'today_hours': '0h 0m',
@@ -373,13 +461,19 @@ async def get_user_working_status(user_id):
             }
         else:
             # Only check-in time without dash
-            return {
+            result = {
                 'checked_in': True,
                 'user_name': user_name,
                 'today_hours': '0h 0m',
                 'check_in_time': today_data,
                 'language': user_language
             }
+        
+        parse_time = time.time() - parse_start
+        total_time = time.time() - start_time
+        logger.info(f"🔍 DEBUG: Data parsing took {parse_time:.2f}s, total function time: {total_time:.2f}s")
+        logger.info(f"🔍 DEBUG: Result: {result}")
+        return result
             
     except Exception as e:
         logger.error(f"Error getting user working status: {e}")
@@ -389,9 +483,16 @@ async def get_user_working_status(user_id):
 async def update_working_status(user_id, checked_in, check_in_time=None, check_out_time=None, work_hours=None, location=None):
     """Update user's working status in Google Sheets"""
     try:
+        logger.info(f"🔍 DEBUG: Updating working status for user {user_id} - checked_in: {checked_in}")
+        start_time = time.time()
+        
         sheets_data = init_google_sheets()
         if sheets_data['status'] != 'success':
+            logger.error(f"🔍 DEBUG: Google Sheets init failed for user {user_id}")
             return False
+        
+        init_time = time.time() - start_time
+        logger.info(f"🔍 DEBUG: Google Sheets init took {init_time:.2f}s")
         
         # Get user name from WORKERS sheet
         workers_sheet = sheets_data['sheets']['workers']
