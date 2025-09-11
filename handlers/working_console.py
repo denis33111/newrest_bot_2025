@@ -57,6 +57,34 @@ class WorkingConsole:
             # Show basic working console even if Google Sheets fails
             await self._show_basic_working_console()
     
+    async def _show_working_console_silent(self):
+        """Show working console without welcome message - just the keyboard"""
+        try:
+            # Get user status from Google Sheets
+            status = await get_user_working_status(self.user_id)
+            language = status.get('language', 'gr')
+            
+            # Create smart keyboard based on current status
+            keyboard = self._create_working_keyboard(status, language)
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard, 
+                resize_keyboard=True, 
+                one_time_keyboard=False,
+                is_persistent=True
+            )
+            
+            # Send only the keyboard without any message
+            await self.bot.send_message(
+                chat_id=self.user_id,
+                text=" ",  # Empty message
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            logger.error(f"Error showing silent working console: {e}")
+            # Show basic working console even if Google Sheets fails
+            await self._show_basic_working_console()
+    
     async def _show_basic_working_console(self):
         """Show basic working console when Google Sheets is unavailable"""
         try:
@@ -168,7 +196,7 @@ class WorkingConsole:
                 check_in, check_out = check_in_time.split('-')
                 message = f"""✅ **{get_text(language, 'welcome_back')}, {user_name}!**
 
-{get_text(language, 'already_registered')}
+{get_text(language, 'already_checked_in_clear')}
 
 **{get_text(language, 'check_in_time')}** {check_in}
 **{get_text(language, 'check_out_time')}** {check_out}
@@ -177,7 +205,7 @@ class WorkingConsole:
             else:
                 message = f"""✅ **{get_text(language, 'welcome_back')}, {user_name}!**
 
-{get_text(language, 'already_registered')}
+{get_text(language, 'already_checked_in_clear')}
 
 {get_text(language, 'use_buttons_below')}"""
                 
@@ -472,7 +500,6 @@ class WorkingConsole:
 
 **{get_text(language, 'time')}** {current_time}
 **{get_text(language, 'location')}** {get_text(language, 'verified')} ✅
-**{get_text(language, 'status')}** {get_text(language, 'working')}
 
 {get_text(language, 'work_session_started')}"""
                 
@@ -482,8 +509,8 @@ class WorkingConsole:
                     parse_mode='Markdown'
                 )
                 
-                # Show updated working console with Check Out button
-                await self.show_working_console()
+                # Show updated working console with Check Out button (no welcome message)
+                await self._show_working_console_silent()
                 
             else:
                 await self._send_error_message()
@@ -534,8 +561,8 @@ class WorkingConsole:
                     parse_mode='Markdown'
                 )
                 
-                # Show updated working console with Check In button
-                await self.show_working_console()
+                # Show updated working console with Check In button (no welcome message)
+                await self._show_working_console_silent()
                 
             else:
                 await self._send_error_message()
