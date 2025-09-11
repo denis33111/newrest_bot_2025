@@ -36,15 +36,20 @@ class ReminderScheduler:
                 # TESTING MODE: Trigger every 2 minutes instead of specific times
                 # This replaces the hardcoded time checks for testing
                 if True:  # Always trigger for testing (remove this line after testing)
+                    logger.info(f"TESTING MODE: Current time: {now.strftime('%H:%M:%S')} - Next reminder type: {next_reminder}")
+                    
                     if next_reminder == "day_course":
                         logger.info("TESTING MODE: Sending day course reminders (every 2 min)")
-                        await self.reminder_system.send_day_course_reminders()
+                        result = await self.reminder_system.send_day_course_reminders()
+                        logger.info(f"TESTING MODE: Day course reminders result: {result}")
                         next_reminder = "pre_course"  # Next time send pre-course
                     else:
                         logger.info("TESTING MODE: Sending pre-course reminders (every 2 min)")
-                        await self.reminder_system.send_daily_reminders()
+                        result = await self.reminder_system.send_daily_reminders()
+                        logger.info(f"TESTING MODE: Pre-course reminders result: {result}")
                         next_reminder = "day_course"  # Next time send day course
                     
+                    logger.info(f"TESTING MODE: Waiting 2 minutes before next trigger. Next will be: {next_reminder}")
                     # Wait 2 minutes before next trigger (testing interval)
                     await asyncio.sleep(2 * 60)
                 

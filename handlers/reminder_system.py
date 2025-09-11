@@ -19,6 +19,14 @@ class ReminderSystem:
         self.bot_token = os.getenv('BOT_TOKEN')
         self.admin_group_id = os.getenv('ADMIN_GROUP_ID')
         
+        # Validate required environment variables
+        if not self.bot_token:
+            raise ValueError("BOT_TOKEN environment variable is required")
+        if not self.admin_group_id:
+            raise ValueError("ADMIN_GROUP_ID environment variable is required")
+        
+        logger.info("ReminderSystem initialized with valid environment variables")
+        
     async def send_pre_course_reminder(self, user_id, course_date, language='gr'):
         """Send reminder at 10am the day before the course"""
         try:
@@ -55,7 +63,16 @@ Will you attend?"""
             return True
             
         except Exception as e:
-            logger.error(f"Error sending pre-course reminder: {e}")
+            # Enhanced error handling with specific error types
+            error_type = type(e).__name__
+            if "BadRequest" in error_type:
+                logger.error(f"Invalid chat_id {user_id}: {e}")
+            elif "Forbidden" in error_type:
+                logger.error(f"User {user_id} blocked bot: {e}")
+            elif "NetworkError" in error_type or "TimeoutError" in error_type:
+                logger.error(f"Network error sending to user {user_id}: {e}")
+            else:
+                logger.error(f"Unexpected error sending pre-course reminder to user {user_id}: {e}")
             return False
     
     async def handle_attendance_confirmation(self, user_id, response, language='gr'):
@@ -318,68 +335,67 @@ We wish you all the best in your future endeavors!"""
             return False
     
     async def get_users_for_reminder(self, target_date):
-        """Get users who need reminders for a specific date"""
+        """Get users who need reminders for a specific date - IMPROVED TWO-PHASE APPROACH"""
         try:
             sheets_data = init_google_sheets()
             if sheets_data['status'] != 'success':
                 return []
             
             registration_sheet = sheets_data['sheets']['registration']
-            workers_sheet = sheets_data['sheets']['workers']
             
-            # Get specific columns to avoid duplicate header issues
-            # Read only the columns we need from each sheet
-            # Read specific columns from registration sheet
-            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+            # PHASE 1: Read only the PRE_COURSE_REMINDER column to find matches
+            logger.info(f"Phase 1: Reading PRE_COURSE_REMINDER column for target date: {target_date}")
             pre_course_reminder_col = registration_sheet.col_values(19)  # Column S (PRE_COURSE_REMINDER)
-            first_reminder_sent_col = registration_sheet.col_values(21)  # Column U (FIRST_REMINDER_SENT)
-            course_date_col = registration_sheet.col_values(18)  # Column R (COURSE_DATE)
-            language_col = registration_sheet.col_values(1)  # Column A (LANGUAGE)
             
-            # Read only specific columns from workers sheet to avoid conflicts
-            workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
-            workers_status_col = workers_sheet.col_values(3)  # Column C (STATUS)
+            # Find matching rows
+            matching_rows = []
+            for i, reminder_date in enumerate(pre_course_reminder_col[1:], start=2):  # Skip header row
+                if str(reminder_date) == str(target_date):
+                    matching_rows.append(i)  # Store row number (1-based)
+                    logger.info(f"Found match at row {i}: {reminder_date}")
             
-            # Create a mapping of user_id to status
-            user_status_map = {}
-            for i in range(1, len(workers_id_col)):  # Skip header row
-                if i < len(workers_status_col):
-                    user_id = workers_id_col[i]
-                    status = workers_status_col[i]
-                    if user_id and status:
-                        user_status_map[user_id] = status
+            if not matching_rows:
+                logger.info(f"No users found with PRE_COURSE_REMINDER = {target_date}")
+                return []
             
-            # Find users with PRE_COURSE_REMINDER matching target_date
-            # AND who haven't been sent a reminder yet
-            # Skip status check - if they're in REGISTRATION sheet, they should get reminders
+            logger.info(f"Phase 1 complete: Found {len(matching_rows)} matching rows")
+            
+            # PHASE 2: For each matching row, get specific user data atomically
             users_to_remind = []
-            for i in range(1, len(user_id_col)):  # Skip header row
-                if (i < len(pre_course_reminder_col) and 
-                    i < len(first_reminder_sent_col) and
-                    i < len(course_date_col) and
-                    i < len(language_col)):
+            for row_num in matching_rows:
+                try:
+                    # Get specific user data from this row in one operation
+                    # This ensures data consistency - all data from the same moment
+                    user_id = registration_sheet.cell(row_num, 2).value  # Column B (user_id)
+                    first_reminder_sent = registration_sheet.cell(row_num, 21).value  # Column U (FIRST_REMINDER_SENT)
+                    course_date = registration_sheet.cell(row_num, 18).value  # Column R (COURSE_DATE)
+                    language = registration_sheet.cell(row_num, 1).value  # Column A (LANGUAGE)
                     
-                    user_id = user_id_col[i]
-                    pre_course_reminder = pre_course_reminder_col[i]
-                    first_reminder_sent = first_reminder_sent_col[i]
-                    course_date = course_date_col[i]
-                    language = language_col[i]
+                    # Validate user_id exists
+                    if not user_id:
+                        logger.warning(f"Row {row_num}: No user_id found, skipping")
+                        continue
                     
-                    # Convert string date to date object for comparison
-                    pre_course_reminder_str = str(pre_course_reminder) if pre_course_reminder else ""
-                    target_date_str = str(target_date)
+                    # Check if reminder already sent
+                    if first_reminder_sent:
+                        logger.info(f"Row {row_num}: User {user_id} already sent reminder, skipping")
+                        continue
                     
-                    # Simple check: if PRE_COURSE_REMINDER matches and no reminder sent yet
-                    if (pre_course_reminder_str == target_date_str and
-                        not first_reminder_sent):
-                        users_to_remind.append({
-                            'user_id': user_id,
-                            'course_date': course_date,
-                            'language': language or 'gr'
-                        })
+                    # Add user to reminder list
+                    users_to_remind.append({
+                        'user_id': user_id,
+                        'course_date': course_date,
+                        'language': language or 'gr',
+                        'row_number': row_num  # Keep track for potential updates
+                    })
+                    
+                    logger.info(f"Row {row_num}: Added user {user_id} (lang: {language or 'gr'})")
+                    
+                except Exception as e:
+                    logger.error(f"Error reading user data from row {row_num}: {e}")
+                    continue
             
-            logger.info(f"Found {len(users_to_remind)} users to remind for {target_date}")
-            
+            logger.info(f"Phase 2 complete: {len(users_to_remind)} users ready for reminders")
             return users_to_remind
             
         except Exception as e:
@@ -387,7 +403,7 @@ We wish you all the best in your future endeavors!"""
             return []
     
     async def get_users_for_day_reminder(self, target_date):
-        """Get users who need day course reminders for a specific date"""
+        """Get users who need day course reminders for a specific date - IMPROVED TWO-PHASE APPROACH"""
         try:
             sheets_data = init_google_sheets()
             if sheets_data['status'] != 'success':
@@ -396,69 +412,94 @@ We wish you all the best in your future endeavors!"""
             registration_sheet = sheets_data['sheets']['registration']
             workers_sheet = sheets_data['sheets']['workers']
             
-            # Get specific columns to avoid duplicate header issues
-            # Read only the columns we need from each sheet
-            # Read specific columns from registration sheet
-            user_id_col = registration_sheet.col_values(2)  # Column B (user id)
+            # PHASE 1: Read only the DAY_COURSE_REMINDER column to find matches
+            logger.info(f"Phase 1: Reading DAY_COURSE_REMINDER column for target date: {target_date}")
             day_course_reminder_col = registration_sheet.col_values(20)  # Column T (DAY_COURSE_REMINDER)
-            course_date_col = registration_sheet.col_values(18)  # Column R (COURSE_DATE)
-            first_reminder_response_col = registration_sheet.col_values(23)  # Column W (FIRST_REMINDER_RESPONSE)
-            second_reminder_sent_col = registration_sheet.col_values(22)  # Column V (SECOND_REMINDER_SENT)
-            language_col = registration_sheet.col_values(1)  # Column A (LANGUAGE)
             
-            # Read only specific columns from workers sheet to avoid conflicts
-            workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
-            workers_status_col = workers_sheet.col_values(3)  # Column C (STATUS)
+            # Find matching rows
+            matching_rows = []
+            for i, reminder_date in enumerate(day_course_reminder_col[1:], start=2):  # Skip header row
+                if str(reminder_date) == str(target_date):
+                    matching_rows.append(i)  # Store row number (1-based)
+                    logger.info(f"Found day reminder match at row {i}: {reminder_date}")
             
-            # Create a mapping of user_id to status
-            user_status_map = {}
-            for i in range(1, len(workers_id_col)):  # Skip header row
-                if i < len(workers_status_col):
-                    user_id = workers_id_col[i]
-                    status = workers_status_col[i]
-                    if user_id and status:
-                        user_status_map[user_id] = status
+            if not matching_rows:
+                logger.info(f"No users found with DAY_COURSE_REMINDER = {target_date}")
+                return []
             
-            # Find users with DAY_COURSE_REMINDER matching target_date 
-            # AND status APPROVED_COURSE_DATE_SET
-            # AND who responded YES to first reminder
-            # AND who haven't been sent second reminder yet
+            logger.info(f"Phase 1 complete: Found {len(matching_rows)} matching rows for day reminders")
+            
+            # PHASE 2: For each matching row, get specific user data atomically
             users_to_remind = []
-            for i in range(1, len(user_id_col)):  # Skip header row
-                if (i < len(day_course_reminder_col) and 
-                    i < len(course_date_col) and
-                    i < len(first_reminder_response_col) and
-                    i < len(second_reminder_sent_col) and
-                    i < len(language_col)):
+            for row_num in matching_rows:
+                try:
+                    # Get specific user data from this row in one operation
+                    user_id = registration_sheet.cell(row_num, 2).value  # Column B (user_id)
+                    first_reminder_response = registration_sheet.cell(row_num, 23).value  # Column W (FIRST_REMINDER_RESPONSE)
+                    second_reminder_sent = registration_sheet.cell(row_num, 22).value  # Column V (SECOND_REMINDER_SENT)
+                    course_date = registration_sheet.cell(row_num, 18).value  # Column R (COURSE_DATE)
+                    language = registration_sheet.cell(row_num, 1).value  # Column A (LANGUAGE)
                     
-                    user_id = user_id_col[i]
-                    day_course_reminder = day_course_reminder_col[i]
-                    course_date = course_date_col[i]
-                    first_reminder_response = first_reminder_response_col[i]
-                    second_reminder_sent = second_reminder_sent_col[i]
-                    language = language_col[i]
-                    user_status = user_status_map.get(user_id)
+                    # Validate user_id exists
+                    if not user_id:
+                        logger.warning(f"Row {row_num}: No user_id found, skipping")
+                        continue
                     
-                    # Convert string date to string for comparison
-                    day_course_reminder_str = str(day_course_reminder) if day_course_reminder else ""
-                    target_date_str = str(target_date)
+                    # Check if second reminder already sent
+                    if second_reminder_sent:
+                        logger.info(f"Row {row_num}: User {user_id} already sent second reminder, skipping")
+                        continue
                     
-                    if (day_course_reminder_str == target_date_str and 
-                        user_status == 'APPROVED_COURSE_DATE_SET' and
-                        first_reminder_response == 'YES' and
-                        not second_reminder_sent):
-                        users_to_remind.append({
-                            'user_id': user_id,
-                            'course_date': course_date,
-                            'language': language or 'gr'
-                        })
+                    # Check if user responded YES to first reminder
+                    if first_reminder_response != 'YES':
+                        logger.info(f"Row {row_num}: User {user_id} did not respond YES to first reminder, skipping")
+                        continue
+                    
+                    # Check user status in WORKERS sheet
+                    user_status = await self._get_user_status_from_workers(user_id, workers_sheet)
+                    if user_status != 'APPROVED_COURSE_DATE_SET':
+                        logger.info(f"Row {row_num}: User {user_id} status is {user_status}, not APPROVED_COURSE_DATE_SET, skipping")
+                        continue
+                    
+                    # Add user to reminder list
+                    users_to_remind.append({
+                        'user_id': user_id,
+                        'course_date': course_date,
+                        'language': language or 'gr',
+                        'row_number': row_num  # Keep track for potential updates
+                    })
+                    
+                    logger.info(f"Row {row_num}: Added user {user_id} for day reminder (lang: {language or 'gr'})")
+                    
+                except Exception as e:
+                    logger.error(f"Error reading user data from row {row_num}: {e}")
+                    continue
             
-            logger.info(f"Found {len(users_to_remind)} users for day course reminder on {target_date}")
+            logger.info(f"Phase 2 complete: {len(users_to_remind)} users ready for day reminders")
             return users_to_remind
             
         except Exception as e:
             logger.error(f"Error getting users for day reminder: {e}")
             return []
+    
+    async def _get_user_status_from_workers(self, user_id, workers_sheet):
+        """Get user status from WORKERS sheet for a specific user_id"""
+        try:
+            # Read only the columns we need
+            workers_id_col = workers_sheet.col_values(2)  # Column B (ID)
+            workers_status_col = workers_sheet.col_values(3)  # Column C (STATUS)
+            
+            # Find user status
+            for i in range(1, len(workers_id_col)):  # Skip header row
+                if i < len(workers_status_col):
+                    if str(workers_id_col[i]) == str(user_id):
+                        return workers_status_col[i] or 'UNKNOWN'
+            
+            return 'NOT_FOUND'
+            
+        except Exception as e:
+            logger.error(f"Error getting user status from workers sheet: {e}")
+            return 'ERROR'
     
     async def send_day_course_reminder(self, user_id, course_date, language='gr'):
         """Send day course reminder with check-in button"""
@@ -493,7 +534,16 @@ Please check in when you arrive at 9:50-15:00."""
             return True
             
         except Exception as e:
-            logger.error(f"Error sending day course reminder: {e}")
+            # Enhanced error handling with specific error types
+            error_type = type(e).__name__
+            if "BadRequest" in error_type:
+                logger.error(f"Invalid chat_id {user_id} for day reminder: {e}")
+            elif "Forbidden" in error_type:
+                logger.error(f"User {user_id} blocked bot for day reminder: {e}")
+            elif "NetworkError" in error_type or "TimeoutError" in error_type:
+                logger.error(f"Network error sending day reminder to user {user_id}: {e}")
+            else:
+                logger.error(f"Unexpected error sending day course reminder to user {user_id}: {e}")
             return False
     
     async def handle_day_checkin(self, user_id, language='gr'):
@@ -660,25 +710,62 @@ You can check in/out as needed throughout the day."""
             now = datetime.now(greece_tz)
             today = now.strftime('%Y-%m-%d')
             
+            logger.info(f"DEBUG: send_daily_reminders called for date: {today}")
+            
             # Get users for today's courses (PRE_COURSE_REMINDER = today)
             users = await self.get_users_for_reminder(today)
+            logger.info(f"DEBUG: Found {len(users)} users for pre-course reminders")
             
             if not users:
                 logger.info(f"No users found for reminders on {today}")
-                return False
+                return True  # Not an error if no users
+            
+            # Track success and failures
+            success_count = 0
+            failed_users = []
+            
+            logger.info(f"Starting to send reminders to {len(users)} users for {today}")
             
             # Send reminders to each user
             for user in users:
-                await self.send_pre_course_reminder(
-                    user['user_id'], 
-                    user['course_date'], 
-                    user['language']
-                )
-                # Small delay between messages to avoid rate limiting
-                await asyncio.sleep(1)
+                try:
+                    success = await self.send_pre_course_reminder(
+                        user['user_id'], 
+                        user['course_date'], 
+                        user['language']
+                    )
+                    
+                    if success:
+                        success_count += 1
+                        logger.info(f"✅ Reminder sent to user {user['user_id']}")
+                    else:
+                        failed_users.append({
+                            'user_id': user['user_id'],
+                            'language': user['language'],
+                            'course_date': user['course_date']
+                        })
+                        logger.warning(f"❌ Failed to send reminder to user {user['user_id']}")
+                    
+                    # Small delay between messages to avoid rate limiting
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    failed_users.append({
+                        'user_id': user['user_id'],
+                        'language': user.get('language', 'gr'),
+                        'course_date': user.get('course_date', 'Unknown'),
+                        'error': str(e)
+                    })
+                    logger.error(f"Exception sending reminder to user {user['user_id']}: {e}")
             
-            logger.info(f"Sent reminders to {len(users)} users for {today}")
-            return True
+            # Log summary
+            logger.info(f"Daily reminders completed: {success_count} successful, {len(failed_users)} failed")
+            
+            # Notify admin about failures
+            if failed_users:
+                await self._notify_admin_reminder_failures(failed_users, today, 'first_reminder')
+            
+            return len(failed_users) == 0  # Return True only if all succeeded
             
         except Exception as e:
             logger.error(f"Error sending daily reminders: {e}")
@@ -692,25 +779,62 @@ You can check in/out as needed throughout the day."""
             now = datetime.now(greece_tz)
             today = now.strftime('%Y-%m-%d')
             
+            logger.info(f"DEBUG: send_day_course_reminders called for date: {today}")
+            
             # Get users for today's day course reminders
             users = await self.get_users_for_day_reminder(today)
+            logger.info(f"DEBUG: Found {len(users)} users for day course reminders")
             
             if not users:
                 logger.info(f"No users found for day course reminders on {today}")
-                return False
+                return True  # Not an error if no users
+            
+            # Track success and failures
+            success_count = 0
+            failed_users = []
+            
+            logger.info(f"Starting to send day course reminders to {len(users)} users for {today}")
             
             # Send reminders to each user in order (1 read → 1 send)
             for user in users:
-                await self.send_day_course_reminder(
-                    user['user_id'], 
-                    user['course_date'], 
-                    user['language']
-                )
-                # Small delay between messages to avoid rate limiting
-                await asyncio.sleep(1)
+                try:
+                    success = await self.send_day_course_reminder(
+                        user['user_id'], 
+                        user['course_date'], 
+                        user['language']
+                    )
+                    
+                    if success:
+                        success_count += 1
+                        logger.info(f"✅ Day reminder sent to user {user['user_id']}")
+                    else:
+                        failed_users.append({
+                            'user_id': user['user_id'],
+                            'language': user['language'],
+                            'course_date': user['course_date']
+                        })
+                        logger.warning(f"❌ Failed to send day reminder to user {user['user_id']}")
+                    
+                    # Small delay between messages to avoid rate limiting
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    failed_users.append({
+                        'user_id': user['user_id'],
+                        'language': user.get('language', 'gr'),
+                        'course_date': user.get('course_date', 'Unknown'),
+                        'error': str(e)
+                    })
+                    logger.error(f"Exception sending day reminder to user {user['user_id']}: {e}")
             
-            logger.info(f"Sent day course reminders to {len(users)} users for {today}")
-            return True
+            # Log summary
+            logger.info(f"Day course reminders completed: {success_count} successful, {len(failed_users)} failed")
+            
+            # Notify admin about failures
+            if failed_users:
+                await self._notify_admin_reminder_failures(failed_users, today, 'day_reminder')
+            
+            return len(failed_users) == 0  # Return True only if all succeeded
             
         except Exception as e:
             logger.error(f"Error sending day course reminders: {e}")
@@ -922,4 +1046,35 @@ Please contact support for assistance."""
             
         except Exception as e:
             logger.error(f"Error sending contact message: {e}")
+            return False
+    
+    async def _notify_admin_reminder_failures(self, failed_users, date, reminder_type):
+        """Notify admin group about reminder failures"""
+        try:
+            bot = Bot(token=self.bot_token)
+            
+            # Create failure message
+            reminder_name = "First Reminder" if reminder_type == 'first_reminder' else "Day Course Reminder"
+            
+            message = f"❌ **{reminder_name} Failures**\n\n"
+            message += f"Date: {date}\n"
+            message += f"Failed to send reminders to {len(failed_users)} users:\n\n"
+            
+            for user in failed_users:
+                error_info = f" (Error: {user.get('error', 'Unknown')})" if 'error' in user else ""
+                message += f"• User {user['user_id']} (Lang: {user.get('language', 'Unknown')}){error_info}\n"
+            
+            message += f"\nPlease check the logs for more details."
+            
+            await bot.send_message(
+                chat_id=self.admin_group_id,
+                text=message,
+                parse_mode='Markdown'
+            )
+            
+            logger.info(f"Admin notified about {len(failed_users)} {reminder_type} failures")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error notifying admin about reminder failures: {e}")
             return False
