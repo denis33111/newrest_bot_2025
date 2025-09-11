@@ -278,7 +278,7 @@ class RegistrationFlow:
 
 • ΑΦΜ, ΑΜΑ, ΑΜΚΑ και μία διεύθυνση.
 
-📄 Υπεύθυνη δήλωση ποινικού μητρώου: [ΥΠ_ΔΗΛΩΣΗ_ΠΟΙΝΙΚΟΥ (2).pdf](https://newrest-bot-2025.onrender.com/download/%CE%A5%CE%A0_%CE%94%CE%97%CE%9B%CE%A9%CE%A3%CE%97_%CE%A0%CE%9F%CE%99%CE%9D%CE%99%CE%9A%CE%9F%CE%A5%20%282%29.pdf)
+📄 Υπεύθυνη δήλωση ποινικού μητρώου: [ΥΠ_ΔΗΛΩΣΗ_ΠΟΙΝΙΚΟΥ.pdf](https://newrest-bot-2025.onrender.com/download/%CE%A5%CE%A0_%CE%94%CE%97%CE%9B%CE%A9%CE%A3%CE%97_%CE%A0%CE%9F%CE%99%CE%9D%CE%99%CE%9A%CE%9F%CE%A5%20%282%29.pdf)
 
 Ευχαριστούμε! Παρακαλώ προχωρήστε στο επόμενο βήμα όπως σας ενημερώσαμε."""
             else:
@@ -306,7 +306,7 @@ Follow the steps: connect with TAXISnet, upload the file, choose signature in Gr
 
 • AFM, AMA, AMKA and your home address.
 
-📄 Criminal record declaration form: [ΥΠ_ΔΗΛΩΣΗ_ΠΟΙΝΙΚΟΥ (2).pdf](https://newrest-bot-2025.onrender.com/download/%CE%A5%CE%A0_%CE%94%CE%97%CE%9B%CE%A9%CE%A3%CE%97_%CE%A0%CE%9F%CE%99%CE%9D%CE%99%CE%9A%CE%9F%CE%A5%20%282%29.pdf)
+📄 Criminal record declaration form: [ΥΠ_ΔΗΛΩΣΗ_ΠΟΙΝΙΚΟΥ.pdf](https://newrest-bot-2025.onrender.com/download/%CE%A5%CE%A0_%CE%94%CE%97%CE%9B%CE%A9%CE%A3%CE%97_%CE%A0%CE%9F%CE%99%CE%9D%CE%99%CE%9A%CE%9F%CE%A5%20%282%29.pdf)
 
 Thank you! Please come to the next step as instructed."""
             
