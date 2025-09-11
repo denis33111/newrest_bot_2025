@@ -143,7 +143,7 @@ class LocationService:
     def __init__(self):
         self.work_location = WORK_LOCATION
     
-    def validate_location(self, user_id):
+    async def validate_location(self, user_id):
         """
         Validate if user location is within work area
         This is a simplified version that always returns True for testing
