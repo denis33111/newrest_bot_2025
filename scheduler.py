@@ -23,12 +23,34 @@ class ReminderScheduler:
         self.running = True
         logger.info("Reminder scheduler started")
         
+        # TESTING MODE: Track which reminder to send next (alternating)
+        # This will be removed after testing
+        next_reminder = "day_course"  # Start with day course reminder
+        
         while self.running:
             try:
                 # Check current time in Greece timezone
                 now = datetime.now(self.greece_tz)
                 current_time = now.time()
                 
+                # TESTING MODE: Trigger every 2 minutes instead of specific times
+                # This replaces the hardcoded time checks for testing
+                if True:  # Always trigger for testing (remove this line after testing)
+                    if next_reminder == "day_course":
+                        logger.info("TESTING MODE: Sending day course reminders (every 2 min)")
+                        await self.reminder_system.send_day_course_reminders()
+                        next_reminder = "pre_course"  # Next time send pre-course
+                    else:
+                        logger.info("TESTING MODE: Sending pre-course reminders (every 2 min)")
+                        await self.reminder_system.send_daily_reminders()
+                        next_reminder = "day_course"  # Next time send day course
+                    
+                    # Wait 2 minutes before next trigger (testing interval)
+                    await asyncio.sleep(2 * 60)
+                
+                # ORIGINAL PRODUCTION CODE (commented out for testing)
+                # Uncomment this section and remove testing code after testing is complete
+                """
                 # If it's 9:50am, send day course reminders
                 if current_time.hour == 9 and current_time.minute == 50:
                     logger.info("It's 9:50am - sending day course reminders")
@@ -47,6 +69,7 @@ class ReminderScheduler:
                 else:
                     # Wait 1 minute before checking again
                     await asyncio.sleep(60)
+                """
                 
             except Exception as e:
                 logger.error(f"Error in reminder scheduler: {e}")
