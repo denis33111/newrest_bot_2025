@@ -257,10 +257,19 @@ def webhook():
     
     return jsonify({'status': 'ok'})
 
-async def start_background_tasks():
+def start_background_tasks():
     """Start background tasks like reminder scheduler"""
-    # Start reminder scheduler
-    asyncio.create_task(start_reminder_scheduler())
+    import threading
+    
+    def run_scheduler():
+        """Run scheduler in separate thread"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(start_reminder_scheduler())
+    
+    # Start scheduler in separate thread
+    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+    scheduler_thread.start()
     logger.info("Background tasks started")
 
 if __name__ == '__main__':
@@ -275,6 +284,6 @@ if __name__ == '__main__':
         asyncio.run(setup_webhook())
     
     # Start background tasks
-    asyncio.run(start_background_tasks())
+    start_background_tasks()
     
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
