@@ -324,6 +324,9 @@ Thank you! Please come to the next step as instructed."""
                 text=message,
                 parse_mode='Markdown'
             )
+            
+            # Show working console with contact button after registration
+            await self._show_post_registration_console()
         else:
             message = "❌ **Registration Failed**\n\nThere was an error saving your registration. Please try again."
             bot = Bot(token=self.bot_token)
@@ -332,3 +335,58 @@ Thank you! Please come to the next step as instructed."""
                 text=message,
                 parse_mode='Markdown'
             )
+    
+    async def _show_post_registration_console(self):
+        """Show working console with contact button after registration completion"""
+        try:
+            from handlers.working_console import WorkingConsole
+            
+            # Create a working console instance
+            working_console = WorkingConsole(self.user_id)
+            
+            # Show a simplified working console with just contact button
+            await self._show_contact_only_console()
+            
+        except Exception as e:
+            logger.error(f"Error showing post-registration console: {e}")
+    
+    async def _show_contact_only_console(self):
+        """Show console with only contact button for post-registration users"""
+        try:
+            from telegram import ReplyKeyboardMarkup, KeyboardButton
+            from handlers.language_system import get_text
+            
+            # Create keyboard with only contact button
+            contact_button = KeyboardButton(f"📞 {get_text(self.language, 'contact')}")
+            keyboard = [[contact_button]]
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard, 
+                resize_keyboard=True, 
+                one_time_keyboard=False,
+                is_persistent=True
+            )
+            
+            # Create message for post-registration users
+            if self.language == 'gr':
+                message = """✅ **Εγγραφή Ολοκληρώθηκε**
+
+Η εγγραφή σας έχει αποθηκευτεί με επιτυχία. Θα ενημερωθείτε για τα επόμενα βήματα.
+
+Εάν έχετε ερωτήσεις, μπορείτε να επικοινωνήσετε μαζί μας."""
+            else:
+                message = """✅ **Registration Completed**
+
+Your registration has been saved successfully. You will be notified about the next steps.
+
+If you have any questions, you can contact us."""
+            
+            bot = Bot(token=self.bot_token)
+            await bot.send_message(
+                chat_id=self.user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            logger.error(f"Error showing contact-only console: {e}")

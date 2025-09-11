@@ -635,3 +635,47 @@ class WorkingConsole:
             text=message,
             parse_mode='Markdown'
         )
+    
+    async def _show_contact_only_console(self):
+        """Show console with only contact button for post-registration users"""
+        try:
+            from telegram import ReplyKeyboardMarkup, KeyboardButton
+            from handlers.language_system import get_text
+            
+            # Get user language from status
+            status = await get_user_working_status(self.user_id)
+            user_language = status.get('language', 'gr')
+            
+            # Create keyboard with only contact button
+            contact_button = KeyboardButton(f"📞 {get_text(user_language, 'contact')}")
+            keyboard = [[contact_button]]
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard, 
+                resize_keyboard=True, 
+                one_time_keyboard=False,
+                is_persistent=True
+            )
+            
+            # Create message for post-registration users
+            if user_language == 'gr':
+                message = """✅ **Εγγραφή Ολοκληρώθηκε**
+
+Η εγγραφή σας έχει αποθηκευτεί με επιτυχία. Θα ενημερωθείτε για τα επόμενα βήματα.
+
+Εάν έχετε ερωτήσεις, μπορείτε να επικοινωνήσετε μαζί μας."""
+            else:
+                message = """✅ **Registration Completed**
+
+Your registration has been saved successfully. You will be notified about the next steps.
+
+If you have any questions, you can contact us."""
+            
+            await self.bot.send_message(
+                chat_id=self.user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            logger.error(f"Error showing contact-only console: {e}")

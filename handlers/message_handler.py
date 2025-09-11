@@ -71,6 +71,9 @@ async def handle_telegram_message(message):
         elif user_status in ['COURSE_DATE_SET', 'APPROVED_COURSE_DATE_SET']:
             # User in transition - show waiting message
             await send_waiting_message(user_id, user_status)
+        elif user_status == 'WAITING':
+            # User completed registration but waiting for approval - handle contact messages
+            await handle_waiting_user_message(user_id, message)
         elif user_status == 'OFF':
             # Disabled user - no response
             logger.info(f"Disabled user {user_id} - ignoring message")
@@ -100,6 +103,26 @@ async def handle_registration_message(user_id, text):
             
     except Exception as e:
         logger.error(f"Error handling registration message: {e}")
+
+async def handle_waiting_user_message(user_id, message):
+    """Handle messages from users in WAITING status (completed registration)"""
+    try:
+        from handlers.working_console import WorkingConsole
+        
+        working_console = WorkingConsole(user_id)
+        
+        # Check if it's a text message with contact command
+        text = message.get('text', '')
+        
+        if 'Contact' in text or 'Επικοινωνία' in text:
+            await working_console.handle_contact()
+        else:
+            # Show contact-only console for any other message
+            await working_console._show_contact_only_console()
+            
+    except Exception as e:
+        logger.error(f"Error handling waiting user message: {e}")
+        await send_error_message(user_id)
 
 async def handle_working_message(user_id, message):
     """Handle messages from working users"""
