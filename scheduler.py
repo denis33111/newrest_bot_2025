@@ -52,6 +52,7 @@ class ReminderScheduler:
                     logger.info(f"TESTING MODE: Waiting 2 minutes before next trigger. Next will be: {next_reminder}")
                     # Wait 2 minutes before next trigger (testing interval)
                     await asyncio.sleep(2 * 60)
+                    continue  # Continue the loop to keep running
                 
                 # ORIGINAL PRODUCTION CODE (commented out for testing)
                 # Uncomment this section and remove testing code after testing is complete
