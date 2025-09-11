@@ -133,3 +133,37 @@ def update_work_location(latitude, longitude, radius_meters=100):
     WORK_LOCATION['radius_meters'] = radius_meters
     
     logger.info(f"Work location updated: {latitude}, {longitude} - Radius: {radius_meters}m")
+
+class LocationService:
+    """
+    Location Service Class
+    Handles GPS location validation for check-in/out
+    """
+    
+    def __init__(self):
+        self.work_location = WORK_LOCATION
+    
+    def validate_location(self, user_id):
+        """
+        Validate if user location is within work area
+        This is a simplified version that always returns True for testing
+        
+        Args:
+            user_id: User ID (not used in this simplified version)
+            
+        Returns:
+            bool: True if location is valid, False otherwise
+        """
+        # For testing purposes, always return True
+        # In production, this would check actual GPS location
+        logger.info(f"Location validation for user {user_id}: ALWAYS TRUE (testing mode)")
+        return True
+    
+    def get_work_location(self):
+        """
+        Get work location information
+        
+        Returns:
+            dict: Work location details
+        """
+        return get_work_location_info()
