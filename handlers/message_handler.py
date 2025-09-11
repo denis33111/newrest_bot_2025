@@ -186,16 +186,63 @@ async def handle_admin_evaluation_callback(data):
         user_id = parts[-1]  # Last part is always user_id
         
         # Get candidate data from storage
-        candidate_data = candidate_data_storage.get(user_id, {
-            'user_id': user_id,
-            'full_name': 'Unknown',
-            'age': 'Unknown',
-            'phone': 'Unknown',
-            'email': 'Unknown',
-            'transportation': 'Unknown',
-            'bank': 'Unknown',
-            'driving_license': 'Unknown'
-        })
+        candidate_data = candidate_data_storage.get(user_id, {})
+        
+        # If no candidate data found, try to get it from Google Sheets
+        if not candidate_data:
+            logger.warning(f"No candidate data found for user {user_id}, attempting to retrieve from Google Sheets")
+            try:
+                from services.google_sheets import init_google_sheets
+                sheets_data = init_google_sheets()
+                if sheets_data['status'] == 'success':
+                    registration_sheet = sheets_data['sheets']['registration']
+                    
+                    # Read specific columns to avoid duplicate header issues
+                    user_id_col = registration_sheet.col_values(2)  # Column B (user_id)
+                    name_col = registration_sheet.col_values(4)  # Column D (NAME)
+                    age_col = registration_sheet.col_values(5)  # Column E (AGE)
+                    phone_col = registration_sheet.col_values(6)  # Column F (PHONE)
+                    email_col = registration_sheet.col_values(7)  # Column G (EMAIL)
+                    
+                    # Find user's data
+                    for i in range(1, len(user_id_col)):  # Skip header row
+                        if str(user_id_col[i]) == str(user_id):
+                            candidate_data = {
+                                'user_id': user_id,
+                                'full_name': name_col[i] if i < len(name_col) else 'Unknown',
+                                'age': age_col[i] if i < len(age_col) else 'Unknown',
+                                'phone': phone_col[i] if i < len(phone_col) else 'Unknown',
+                                'email': email_col[i] if i < len(email_col) else 'Unknown',
+                                'transportation': 'Unknown',
+                                'bank': 'Unknown',
+                                'driving_license': 'Unknown'
+                            }
+                            break
+                    
+                    # If still no data found, use default
+                    if not candidate_data:
+                        candidate_data = {
+                            'user_id': user_id,
+                            'full_name': 'Unknown',
+                            'age': 'Unknown',
+                            'phone': 'Unknown',
+                            'email': 'Unknown',
+                            'transportation': 'Unknown',
+                            'bank': 'Unknown',
+                            'driving_license': 'Unknown'
+                        }
+            except Exception as e:
+                logger.error(f"Error retrieving candidate data from Google Sheets: {e}")
+                candidate_data = {
+                    'user_id': user_id,
+                    'full_name': 'Unknown',
+                    'age': 'Unknown',
+                    'phone': 'Unknown',
+                    'email': 'Unknown',
+                    'transportation': 'Unknown',
+                    'bank': 'Unknown',
+                    'driving_license': 'Unknown'
+                }
         
         
         # Get or create admin evaluation instance to maintain state

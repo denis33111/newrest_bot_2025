@@ -19,6 +19,7 @@ class RegistrationFlow:
         self.language = language
         self.data = {}
         self.current_step = 0
+        self.question_number = 1
         self.bot_token = os.getenv('BOT_TOKEN')
     
     async def start_registration(self):
@@ -72,7 +73,8 @@ class RegistrationFlow:
     async def ask_text_question(self, field, question_key):
         """Ask a text input question"""
         question = get_text(self.language, question_key)
-        message = f"**{self.current_step}. {question}**"
+        message = f"**{self.question_number}. {question}**"
+        self.question_number += 1
         
         bot = Bot(token=self.bot_token)
         await bot.send_message(
@@ -132,7 +134,8 @@ class RegistrationFlow:
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        message = f"**{self.current_step}. {question}**"
+        message = f"**{self.question_number}. {question}**"
+        self.question_number += 1
         
         bot = Bot(token=self.bot_token)
         await bot.send_message(
@@ -172,7 +175,7 @@ class RegistrationFlow:
     
     async def show_review_screen(self):
         """Show review screen with edit options"""
-        review_text = f"*4. Review & Confirmation*\n\n{get_text(self.language, 'review_title')}\n\n"
+        review_text = f"*{self.question_number}. Review & Confirmation*\n\n{get_text(self.language, 'review_title')}\n\n"
         
         # Add all collected data with edit buttons
         fields = [
@@ -218,6 +221,11 @@ class RegistrationFlow:
     async def handle_edit_request(self, callback_data):
         """Handle edit request"""
         field = callback_data.replace('edit_', '')
+        
+        # Calculate the correct question number for the field being edited
+        field_order = ['full_name', 'age', 'phone', 'email', 'address', 'transportation', 'bank', 'driving_license']
+        if field in field_order:
+            self.question_number = field_order.index(field) + 2  # +2 because language selection is 1
         
         if field in ['full_name', 'age', 'phone', 'email', 'address']:
             # Text input fields

@@ -450,9 +450,9 @@ Thank you for your interest and we wish you all the best!"""
             name = self.candidate_data.get('full_name', 'Unknown')
             
             if approved:
-                message = f"✅ **Evaluation Complete**\n\nCandidate **{name}** has been **APPROVED** and notified."
+                message = f"✅ **Αξιολόγηση Ολοκληρώθηκε**\n\nΟ υποψήφιος **{name}** έχει **ΕΓΚΡΙΘΕΙ** και ενημερώθηκε."
             else:
-                message = f"❌ **Evaluation Complete**\n\nCandidate **{name}** has been **REJECTED** and notified."
+                message = f"❌ **Αξιολόγηση Ολοκληρώθηκε**\n\nΟ υποψήφιος **{name}** έχει **ΑΠΟΡΡΙΦΘΕΙ** και ενημερώθηκε."
             
             await bot.send_message(
                 chat_id=self.admin_group_id,
